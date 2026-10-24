@@ -212,3 +212,22 @@ Applied from `assets/Babarify Download Manager Brand Guide.png`:
 - Palette: Primary Blue #2563EB, Primary Green #10B981, Dark Navy #0F172A, Gray #64748B, Light Gray #E2E8F0.
 - Montserrat bundled locally (OFL-1.1, `@fontsource-variable/montserrat`), so the app works offline and the CSP stays strict.
 - Navy sidebar with Downloads / Video downloader / Browser integration / Settings, status dots, and the tagline "Faster Downloads. More Possibilities." on the empty state and in the extension.
+
+### On-video "Download With BDM" panel — 2026-10-24
+
+**Automated:** `npm run test:rust` 103 passed (new: choice list from an analysis, including DRM and playlist refusals; strict parsing of the two new messages, with media options validated so a format id can't inject flags). `npm run test:extension` 9 passed (new: pages may send only `formats` and `mediaDownload` with an http(s) URL; the panel is off by default; manifest asks for `scripting` only as an optional permission).
+
+**Real browsers** (throwaway profiles; test copy of the extension with site access pre-granted because a script can't click Chrome's permission prompt; same code and ID):
+
+| Check | Result |
+| --- | --- |
+| Setting off: no script registered, no panel on a video page | ✅ Chrome |
+| Local page with an HTML5 video: panel just above the video's top-right corner | ✅ Chrome, Edge |
+| Format list: local page in 4–6 s (MP4 best, MP3, M4A) | ✅ Chrome, Edge |
+| YouTube (*Big Buck Bunny*, CC-BY): list in 13 s with 4K/1440p/1080p/720p/480p/360p/240p/144p, sizes, MP3/M4A, title and license | ✅ Chrome |
+| One click → "✓ Downloading in BDM" and the file completes in BDM (MP4 local 243,751 B; MP3 local; YouTube 360p 28,523,658 B) | ✅ |
+| Clicking the panel doesn't pause or play the video; × hides it for that video | ✅ |
+
+Improvement made while testing: formats are requested as soon as the pointer reaches the bar, so the list appears sooner.
+
+**Left for you:** turn the panel on in your own Chrome (extension Options → "Show 'Download With BDM' on videos") and accept the site-access prompt.

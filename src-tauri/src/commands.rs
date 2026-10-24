@@ -196,26 +196,42 @@ pub async fn add_media_downloads(
     request: NewMediaRequest,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<Download>> {
-    if request.items.is_empty() {
+    add_media(
+        &state,
+        &request.items,
+        &request.options,
+        request.destination_dir.as_deref(),
+        request.start.unwrap_or(true),
+    )
+}
+
+/// Shared by the Add dialog and the browser's one-click download.
+pub(crate) fn add_media(
+    state: &AppState,
+    items: &[MediaItem],
+    options: &MediaOptions,
+    destination_dir: Option<&str>,
+    start: bool,
+) -> AppResult<Vec<Download>> {
+    if items.is_empty() {
         return Err(AppError::Validation("Choose at least one video.".into()));
     }
-    if request.items.len() > analyze::MAX_PLAYLIST_ENTRIES {
+    if items.len() > analyze::MAX_PLAYLIST_ENTRIES {
         return Err(AppError::Validation("Too many items at once.".into()));
     }
-    args::validate(&request.options)?;
-    let urls = request
-        .items
+    args::validate(options)?;
+    let urls = items
         .iter()
         .map(|i| validation::validate_url(&i.url))
         .collect::<AppResult<Vec<_>>>()?;
-    let ext = expected_extension(&request.options);
+    let ext = expected_extension(options);
 
     let created = {
         let conn = state.db()?;
-        let destination_dir = resolve_destination(&conn, &state, request.destination_dir.as_deref())?;
+        let destination_dir = resolve_destination(&conn, state, destination_dir)?;
         let dest = destination_dir.to_string_lossy();
         let mut created = Vec::with_capacity(urls.len());
-        for (item, url) in request.items.iter().zip(&urls) {
+        for (item, url) in items.iter().zip(&urls) {
             let title = item.title.as_deref().map(str::trim).filter(|t| !t.is_empty());
             let base = title.map(validation::sanitize_file_name).unwrap_or_else(|| validation::file_name_from_url(url));
             let file_name = format!("{base}.{ext}");
@@ -228,7 +244,7 @@ pub async fn add_media_downloads(
                     expected_sha256: None,
                     kind: DownloadKind::Media,
                     title,
-                    media_options: Some(&request.options),
+                    media_options: Some(options),
                     referrer: None,
                 },
             )?);
@@ -236,7 +252,7 @@ pub async fn add_media_downloads(
         created
     };
 
-    if request.start.unwrap_or(true) {
+    if start {
         for d in &created {
             state.engine.enqueue(&d.id)?;
         }

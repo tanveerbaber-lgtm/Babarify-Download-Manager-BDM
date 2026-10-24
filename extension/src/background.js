@@ -2,7 +2,7 @@
 // optional media detection. All listeners are registered at the top level so
 // the worker wakes up for them.
 
-import { classifyMedia, downloadMessage, normalizeSettings, shouldCapture } from "./rules.js";
+import { classifyMedia, downloadMessage, isPanelMessage, normalizeSettings, shouldCapture } from "./rules.js";
 import { connectionState, sendToBdm } from "./native.js";
 
 const MENU_LINK = "bdm-download-link";
@@ -178,9 +178,48 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
 });
 chrome.tabs.onRemoved.addListener((tabId) => chrome.storage.session.remove(`media:${tabId}`));
 
-// Messages from the popup.
+// ------------------------------------------------------ on-video panel
+
+const PANEL_ID = "bdm-video-panel";
+const PANEL_PERMISSIONS = { permissions: ["scripting"], origins: ["http://*/*", "https://*/*"] };
+
+/** Registers the panel script when it's switched on and permitted; removes it otherwise. */
+async function syncVideoPanel() {
+  const { videoPanel } = await getSettings();
+  const allowed = await chrome.permissions.contains(PANEL_PERMISSIONS);
+  if (!chrome.scripting) return; // Not granted: the API doesn't exist.
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [PANEL_ID] });
+  if (videoPanel && allowed && existing.length === 0) {
+    await chrome.scripting.registerContentScripts([{
+      id: PANEL_ID,
+      matches: ["http://*/*", "https://*/*"],
+      js: ["src/video-panel.js"],
+      runAt: "document_idle",
+      allFrames: true,
+      persistAcrossSessions: true,
+    }]);
+  } else if ((!videoPanel || !allowed) && existing.length > 0) {
+    await chrome.scripting.unregisterContentScripts({ ids: [PANEL_ID] });
+  }
+}
+
+const syncPanelSafely = () => syncVideoPanel().catch(() => {});
+syncPanelSafely();
+chrome.permissions.onAdded.addListener(syncPanelSafely);
+chrome.permissions.onRemoved.addListener(syncPanelSafely);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.settings) syncPanelSafely();
+});
+
+// Messages from the popup and from the on-video panel.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false;
+  // Page scripts (sender.tab set) may only ask for formats or a media download.
+  if (sender.tab) {
+    if (!isPanelMessage(msg)) return false;
+    sendToBdm(msg).then(sendResponse);
+    return true;
+  }
   if (msg?.type === "send") {
     sendToBdm(msg.payload).then(async (reply) => {
       if (reply.ok) await recordSuccess();

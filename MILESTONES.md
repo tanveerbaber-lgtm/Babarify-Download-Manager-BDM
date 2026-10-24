@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-24 — M4 confirmed in your own Chrome: the popup connects and "Download video or audio from this page" opens BDM's video dialog (release build). Two manual checks remain: media-detection permission prompt and behaviour after a browser update.
+**Last updated:** 2026-10-24 — On-video "Download With BDM" panel built and verified in real Chrome and Edge (local page, YouTube): 103 Rust + 9 extension tests pass. Left: you turning it on in your own Chrome (site-access prompt), plus the earlier media-detection and browser-update checks.
 
 ## Progress
 
@@ -13,11 +13,11 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M1 — Desktop Foundation | 9 | 0 | 9 | ✅ Complete |
 | M2 — Core Download Engine | 10 | 0 | 10 | ✅ Complete |
 | M3 — Video and Audio Engine | 11 | 0 | 11 | ✅ Complete |
-| M4 — Chrome and Edge Integration | 8 | 2 | 10 | In progress (2 manual checks left) |
+| M4 — Chrome and Edge Integration | 8 | 3 | 11 | In progress (manual checks left) |
 | M5 — Advanced Download Management | 0 | 0 | 10 | Not started |
 | M6 — Security, Reliability and Performance | 0 | 0 | 11 | Not started |
 | M7 — Windows Installer and Release | 0 | 0 | 10 | Not started |
-| **Total** | **38** | **2** | **71** | |
+| **Total** | **38** | **3** | **72** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -76,6 +76,10 @@ Connect the browser to the Windows application.
   - [ ] Media detection on live pages (needs a person to accept the optional permission prompt)
 - [x] Pass URLs, filenames and permitted request metadata safely.
 - [x] Handle application-not-running and browser-disconnected states.
+- [~] On-video "Download With BDM" panel: opt-in site access, format list from BDM, one-click download *(added 2026-10-24)*.
+  - [x] Panel, format list and one-click download verified in Chrome 155 (local page and YouTube) and Edge 156
+  - [x] Off by default; no script on any page until switched on
+  - [ ] Turn it on in your own Chrome and accept the site-access prompt (manual)
 - [~] Test browser updates, permissions, installation and uninstallation.
   - [x] Extension install (fixed ID) and uninstall in Chrome 155 and Edge 156
   - [x] Native host register / unregister (HKCU) and the disconnected fallback

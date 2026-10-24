@@ -10,6 +10,8 @@ use std::io::{self, Read, Write};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
+use crate::media::args;
+use crate::models::MediaOptions;
 use crate::validation;
 
 /// Largest message accepted from the browser or the pipe. Real requests are
@@ -35,9 +37,15 @@ pub enum BrowserRequest {
     /// Open BDM's video/audio dialog for a page.
     #[serde(rename_all = "camelCase")]
     Media { url: String, page_title: Option<String> },
+    /// List download choices for the video on a page (on-video panel).
+    #[serde(rename_all = "camelCase")]
+    Formats { url: String },
+    /// Start a video/audio download straight away with a choice from `Formats`.
+    #[serde(rename_all = "camelCase")]
+    MediaDownload { url: String, title: Option<String>, options: MediaOptions },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserResponse {
     pub ok: bool,
@@ -48,11 +56,42 @@ pub struct BrowserResponse {
     pub version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Download choices, in reply to `Formats`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media: Option<MediaChoices>,
+}
+
+/// What the on-video panel offers for one video.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaChoices {
+    pub title: String,
+    pub site: String,
+    pub duration: Option<f64>,
+    pub license: Option<String>,
+    pub choices: Vec<MediaChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaChoice {
+    /// e.g. "MP4 · 1080p 60fps".
+    pub label: String,
+    /// e.g. "≈ 268 MB".
+    pub size_bytes: Option<u64>,
+    /// "video" or "audio".
+    pub kind: String,
+    /// Sent back unchanged in `MediaDownload`.
+    pub options: MediaOptions,
 }
 
 impl BrowserResponse {
     pub fn ok() -> Self {
-        Self { ok: true, app: None, version: None, error: None }
+        Self { ok: true, app: None, version: None, error: None, media: None }
+    }
+
+    pub fn with_media(media: MediaChoices) -> Self {
+        Self { media: Some(media), ..Self::ok() }
     }
 
     pub fn running(version: &str) -> Self {
@@ -64,7 +103,7 @@ impl BrowserResponse {
     }
 
     pub fn error(message: impl Into<String>) -> Self {
-        Self { ok: false, app: None, version: None, error: Some(message.into()) }
+        Self { error: Some(message.into()), ok: false, ..Self::ok() }
     }
 }
 
@@ -105,6 +144,14 @@ impl BrowserRequest {
                     return Err(AppError::Validation("Page title is too long.".into()));
                 }
                 Ok(())
+            }
+            Self::Formats { url } => validation::validate_url(url).map(|_| ()),
+            Self::MediaDownload { url, title, options } => {
+                validation::validate_url(url)?;
+                if title.as_deref().is_some_and(|t| t.chars().count() > 1000) {
+                    return Err(AppError::Validation("Title is too long.".into()));
+                }
+                args::validate(options)
             }
         }
     }
@@ -187,6 +234,24 @@ mod tests {
         let bad_ref = BrowserRequest::Download { url: "https://e.com/a".into(), file_name: None, referrer: Some("javascript:alert(1)".into()), mime: None, size: None };
         assert!(bad_ref.validate().is_err());
         assert!(BrowserRequest::Media { url: "chrome://settings".into(), page_title: None }.validate().is_err());
+    }
+
+    #[test]
+    fn parses_panel_messages() {
+        let f: BrowserRequest = serde_json::from_str(r#"{"type":"formats","url":"https://www.youtube.com/watch?v=x"}"#).unwrap();
+        assert!(f.validate().is_ok());
+        let d: BrowserRequest = serde_json::from_str(
+            r#"{"type":"mediaDownload","url":"https://e.com/v","title":"Clip","options":{"mode":"video","maxHeight":720,"container":"mp4"}}"#,
+        )
+        .unwrap();
+        assert!(d.validate().is_ok());
+        // Options are validated too, so a format id can't smuggle in flags.
+        let bad: BrowserRequest = serde_json::from_str(
+            r#"{"type":"mediaDownload","url":"https://e.com/v","options":{"mode":"format","formatId":"--exec calc","container":"mp4"}}"#,
+        )
+        .unwrap();
+        assert!(bad.validate().is_err());
+        assert!(serde_json::from_str::<BrowserRequest>(r#"{"type":"formats","url":"https://e.com","extra":1}"#).is_err());
     }
 
     #[test]

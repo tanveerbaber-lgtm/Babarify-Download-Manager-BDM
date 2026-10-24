@@ -4,8 +4,10 @@
 //! Each request carries a random token that the app writes to the user's
 //! AppData at startup, so other users on the machine can't drive it.
 
+use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -52,7 +54,8 @@ pub fn read_app_path(data_dir: &Path) -> Option<PathBuf> {
 
 // ------------------------------------------------------------------- server
 
-pub type Handler = Arc<dyn Fn(BrowserRequest) -> BrowserResponse + Send + Sync>;
+/// Answers one request; async because listing formats runs yt-dlp.
+pub type Handler = Arc<dyn Fn(BrowserRequest) -> Pin<Box<dyn Future<Output = BrowserResponse> + Send>> + Send + Sync>;
 
 /// Serves pipe requests until the process exits.
 #[cfg(windows)]
@@ -98,7 +101,7 @@ async fn handle_connection(
 
     let response = match serde_json::from_slice::<PipeRequest>(&buf) {
         Ok(req) if protocol::constant_time_eq(&req.token, token) => match req.request.validate() {
-            Ok(()) => handler(req.request),
+            Ok(()) => handler(req.request).await,
             Err(e) => BrowserResponse::error(e.to_string()),
         },
         Ok(_) => BrowserResponse::error("Not authorized."),
@@ -145,10 +148,14 @@ mod tests {
     }
 
     async fn start(name: &str, token: &str) {
-        let handler: Handler = Arc::new(|req| match req {
-            BrowserRequest::Ping => BrowserResponse::running("9.9.9"),
-            BrowserRequest::Download { url, .. } => BrowserResponse { error: Some(url), ..BrowserResponse::ok() },
-            BrowserRequest::Media { .. } => BrowserResponse::ok(),
+        let handler: Handler = Arc::new(|req| {
+            Box::pin(async move {
+                match req {
+                    BrowserRequest::Ping => BrowserResponse::running("9.9.9"),
+                    BrowserRequest::Download { url, .. } => BrowserResponse { error: Some(url), ..BrowserResponse::ok() },
+                    _ => BrowserResponse::ok(),
+                }
+            })
         });
         let (n, t) = (name.to_string(), token.to_string());
         tokio::spawn(async move { serve(n, t, handler).await });
@@ -187,7 +194,7 @@ mod tests {
     async fn refuses_a_second_server_on_the_same_name() {
         let name = test_pipe();
         start(&name, "a").await;
-        let handler: Handler = Arc::new(|_| BrowserResponse::ok());
+        let handler: Handler = Arc::new(|_| Box::pin(async { BrowserResponse::ok() }));
         let second = tokio::time::timeout(Duration::from_secs(2), serve(name, "b".into(), handler)).await.unwrap();
         assert!(second.is_err(), "pipe squatting must fail");
     }

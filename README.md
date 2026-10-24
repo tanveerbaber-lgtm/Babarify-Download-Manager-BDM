@@ -17,7 +17,7 @@ A fast, reliable download manager for Windows, built with **Tauri 2**, **React**
 - Video and audio from sites supported by yt-dlp: 360p–4K, MP4 (most compatible) or MKV (best quality), audio-only MP3/M4A/Opus, exact formats, and playlists
 - yt-dlp, FFmpeg and Deno installed and updated by BDM from their official releases, checksum-verified (or use copies on PATH)
 - DRM-protected media is detected and not downloaded
-- Chrome and Edge extension: optional capture of browser downloads (by file type, with excluded sites and a fallback to the browser), "Download with BDM" menus, "Download video or audio from this page", optional media detection; BDM starts automatically when needed
+- Chrome and Edge extension: optional capture of browser downloads (by file type, with excluded sites and a fallback to the browser), "Download with BDM" menus, "Download video or audio from this page", an optional "Download With BDM" panel on videos (pick a format, the download starts), optional media detection; BDM starts automatically when needed
 - Dashboard with download summary, sidebar navigation and download table
 - Add Download dialog with URL validation, filename suggestion and folder picker
 - SQLite storage with versioned migrations
@@ -98,7 +98,8 @@ cd src-tauri; npx tauri icon ../assets/brand/bdm-app-icon.svg -o icons
 3. The extension's ID is fixed (`emaohblojdddihemfkbcchbfgaaanjkb`), so the connection works straight away.
 4. If the popup still says "BDM isn't connected" right after connecting, restart the browser once.
 
-When BDM isn't running, the browser starts whichever BDM build you ran last. A development build (`npm run tauri dev`) needs its dev server, so for everyday use run the release build (`npx tauri build --no-bundle` → `src-tauri	argeteleasedm.exe`) once and choose **Repair connection** on the Browser integration page.
+When BDM isn't running, the browser starts whichever BDM build you ran last. A development build (`npm run tauri dev`) needs its dev server, so for everyday use run the release build (`npx tauri build --no-bundle` → `src-tauri	arget
+eleasedm.exe`) once and choose **Repair connection** on the Browser integration page.
 
 ## Documentation
 

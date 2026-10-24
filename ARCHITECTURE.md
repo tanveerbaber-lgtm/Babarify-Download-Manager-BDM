@@ -92,6 +92,8 @@ Keys: `theme`, `default_download_dir`, `max_concurrent_downloads` (1–16), `seg
 | `add_media_downloads` | `{ items[], options, destinationDir?, start? }` | `Download[]` |
 | `get_browser_integration` | — | `BrowserStatus[]` (Chrome, Edge) |
 | `register_browser_integration` / `unregister_browser_integration` | — | `BrowserStatus[]` |
+
+Browser messages (extension → host → app): `ping`, `download`, `media` (open the Video dialog), `formats` (choices for the on-video panel), `mediaDownload` (start a chosen format).
 | `suggest_file_name` | `url` | `string` |
 | `get_settings` | — | `Settings` |
 | `update_settings` | `SettingsPatch` | `Settings` |
@@ -144,6 +146,7 @@ Extension (MV3) ──sendNativeMessage──▶ bdm-native-host.exe ──named
 - **Native host** (`src-tauri/src/bin/bdm-native-host.rs`, `browser/host.rs`): only accepts the origins in `EXTENSION_IDS`; parses each message strictly (unknown types and fields are rejected) and validates URLs; never acts itself. If the app isn't listening it starts `bdm.exe` (path recorded by the app in `%APPDATA%\com.babarify.bdm\app-path`) detached and outside the browser's job object, then retries for up to 25 s. Pings never start BDM.
 - **IPC** (`browser/ipc.rs`): per-user named pipe created with `first_pipe_instance` (no squatting) and `reject_remote_clients`; every request carries a fresh random token the app writes to the user's AppData at startup. Comparison is constant time; requests are capped at 64 KB and must arrive within 5 s.
 - **Registration** (`browser/registry.rs`): HKCU keys for Chrome and Edge point at a manifest whose `allowed_origins` lists only BDM's extension ID(s). It needs no admin rights; the Browser integration page connects and disconnects it, and the installer will do the same in M7.
+- **On-video panel** (`extension/src/video-panel.js`): off by default. Turning it on in Options requests the optional `scripting` permission and http/https site access, then the service worker registers the panel as a dynamic content script (all frames). The panel lives in a closed shadow root and picks the largest visible video. Clicking it sends `formats` (BDM runs the analysis and returns a short `MediaChoices` list: MP4 per quality with sizes, MP3, M4A, plus title and license, or a reason such as DRM or playlist); choosing an item sends `mediaDownload` with those options, and BDM queues and starts it. The service worker forwards only these two message types from pages, with an http(s) URL. The pipe handler is async because analysis runs yt-dlp.
 - **App**: `tauri-plugin-single-instance` makes a second launch focus the running window. Browser downloads start immediately (with a toast and, optionally, the window brought to the front); media pages open the Video / audio dialog, which analyzes the URL right away.
 
 ## Branding

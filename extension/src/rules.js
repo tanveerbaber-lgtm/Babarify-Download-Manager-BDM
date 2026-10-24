@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   excludedHosts: [],
   /** Watch pages for video/audio streams (needs optional permissions). */
   detectMedia: false,
+  /** Show the "Download With BDM" panel on videos (needs optional permissions). */
+  videoPanel: false,
 });
 
 /** Settings from storage, with defaults for anything missing or malformed. */
@@ -33,6 +35,7 @@ export function normalizeSettings(raw) {
     minSizeMb: Number.isFinite(Number(s.minSizeMb)) && Number(s.minSizeMb) >= 0 ? Number(s.minSizeMb) : 0,
     excludedHosts: parseList(s.excludedHosts).map((h) => h.replace(/^\*\./, "")).filter((h) => /^[a-z0-9.-]+$/.test(h)),
     detectMedia: s.detectMedia === true,
+    videoPanel: s.videoPanel === true,
   };
 }
 
@@ -147,6 +150,17 @@ export function classifyMedia(url, contentType) {
   const stream = /mpegurl|dash\+xml/.test(type) || /\.(m3u8|mpd)(\?|#|$)/i.test(url);
   const ext = extensionOf(new URL(url).pathname) || type.split("/")[1] || "media";
   return { kind: stream ? "stream" : "file", label: stream ? `${ext.toUpperCase()} stream` : ext.toUpperCase() };
+}
+
+/** Messages page scripts may send; anything else is ignored. */
+export function isPanelMessage(msg) {
+  if (!msg || typeof msg !== "object" || !isHttpUrl(msg.url)) return false;
+  if (msg.type === "formats") return Object.keys(msg).every((k) => k === "type" || k === "url");
+  if (msg.type === "mediaDownload") {
+    const okKeys = Object.keys(msg).every((k) => ["type", "url", "title", "options"].includes(k));
+    return okKeys && typeof msg.options === "object" && msg.options !== null && (msg.title === undefined || typeof msg.title === "string");
+  }
+  return false;
 }
 
 /** Readable size for popups. */

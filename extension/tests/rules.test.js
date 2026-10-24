@@ -9,6 +9,7 @@ import {
   downloadMessage,
   extensionOf,
   hostExcluded,
+  isPanelMessage,
   normalizeSettings,
   parseList,
   shouldCapture,
@@ -75,6 +76,17 @@ test("normalizes settings safely", () => {
   assert.deepEqual(parseList("a b,a;c"), ["a", "b", "c"]);
 });
 
+test("page scripts may only ask for formats or a media download", () => {
+  assert.equal(isPanelMessage({ type: "formats", url: "https://www.youtube.com/watch?v=x" }), true);
+  assert.equal(isPanelMessage({ type: "mediaDownload", url: "https://e.com/v", title: "t", options: { mode: "audio", format: "mp3" } }), true);
+  assert.equal(isPanelMessage({ type: "download", url: "https://e.com/a.zip" }), false, "no plain downloads from pages");
+  assert.equal(isPanelMessage({ type: "media", url: "https://e.com" }), false);
+  assert.equal(isPanelMessage({ type: "formats", url: "file:///C:/x" }), false);
+  assert.equal(isPanelMessage({ type: "formats", url: "https://e.com", extra: 1 }), false);
+  assert.equal(isPanelMessage({ type: "mediaDownload", url: "https://e.com" }), false, "options required");
+  assert.equal(normalizeSettings({}).videoPanel, false, "panel is off until the user turns it on");
+});
+
 test("helpers", () => {
   assert.equal(basename("C:\\dl\\a b.zip"), "a b.zip");
   assert.equal(extensionOf("/x/movie.MKV?t=1"), "mkv");
@@ -106,5 +118,5 @@ test("manifest asks only for what it needs", () => {
   assert.equal(m.manifest_version, 3);
   assert.deepEqual([...m.permissions].sort(), ["activeTab", "contextMenus", "downloads", "nativeMessaging", "storage"]);
   assert.equal(m.host_permissions, undefined, "no host access unless media detection is turned on");
-  assert.deepEqual(m.optional_permissions, ["webRequest"]);
+  assert.deepEqual(m.optional_permissions, ["webRequest", "scripting"], "panel and media detection ask only when turned on");
 });

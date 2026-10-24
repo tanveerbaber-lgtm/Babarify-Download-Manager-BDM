@@ -190,9 +190,13 @@ mod tests {
         // "Launching" starts the pipe server, like the real app would.
         let (p, t, handle) = (pipe.clone(), token.clone(), rt.handle().clone());
         let launch: Box<dyn Fn(&Path) -> bool> = Box::new(move |_| {
-            let handler: Handler = Arc::new(|req| match req {
-                BrowserRequest::Download { file_name, .. } => BrowserResponse { error: file_name, ..BrowserResponse::ok() },
-                _ => BrowserResponse::running("1.0"),
+            let handler: Handler = Arc::new(|req| {
+                Box::pin(async move {
+                    match req {
+                        BrowserRequest::Download { file_name, .. } => BrowserResponse { error: file_name, ..BrowserResponse::ok() },
+                        _ => BrowserResponse::running("1.0"),
+                    }
+                })
             });
             handle.spawn(ipc::serve(p.clone(), t.clone(), handler));
             true

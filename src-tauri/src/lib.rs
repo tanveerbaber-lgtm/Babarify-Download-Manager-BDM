@@ -70,22 +70,25 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
-/// Handles a request from the extension, relayed by the native host.
-fn handle_browser_request(app: &AppHandle, request: BrowserRequest) -> BrowserResponse {
-    let state = app.state::<AppState>();
-    let show = state
+fn show_on_browser_add(state: &AppState) -> bool {
+    state
         .db()
         .and_then(|c| db::settings::load(&c, &state.fallback_download_dir))
         .map(|s| s.show_on_browser_add)
-        .unwrap_or(true);
+        .unwrap_or(true)
+}
+
+/// Handles a request from the extension, relayed by the native host.
+async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> BrowserResponse {
+    let state = app.state::<AppState>();
     match request {
         BrowserRequest::Ping => BrowserResponse::running(&app.package_info().version.to_string()),
         BrowserRequest::Download { url, file_name, referrer, .. } => {
             match commands::add_from_browser(&state, &url, file_name.as_deref(), referrer.as_deref()) {
                 Ok(download) => {
                     let _ = app.emit(EVENT_BROWSER_ADDED, &download);
-                    if show {
-                        show_main_window(app);
+                    if show_on_browser_add(&state) {
+                        show_main_window(&app);
                     }
                     BrowserResponse::ok()
                 }
@@ -95,8 +98,36 @@ fn handle_browser_request(app: &AppHandle, request: BrowserRequest) -> BrowserRe
         BrowserRequest::Media { url, page_title } => {
             // Media needs a quality choice, so it opens the dialog rather than starting.
             let _ = app.emit(EVENT_BROWSER_MEDIA, BrowserMedia { url, page_title });
-            show_main_window(app);
+            show_main_window(&app);
             BrowserResponse::ok()
+        }
+        BrowserRequest::Formats { url } => {
+            let tools = match state.tools.require() {
+                Ok(t) => t,
+                Err(e) => return BrowserResponse::error(e.to_string()),
+            };
+            match media::analyze::analyze(&tools, &url).await {
+                Ok(info) => match media::choices::media_choices(&info) {
+                    Ok(choices) => BrowserResponse::with_media(choices),
+                    Err(message) => BrowserResponse::error(message),
+                },
+                Err(e) => BrowserResponse::error(e.to_string()),
+            }
+        }
+        BrowserRequest::MediaDownload { url, title, options } => {
+            let items = [commands::MediaItem { url, title }];
+            match commands::add_media(&state, &items, &options, None, true) {
+                Ok(created) => {
+                    for d in &created {
+                        let _ = app.emit(EVENT_BROWSER_ADDED, d);
+                    }
+                    if show_on_browser_add(&state) {
+                        show_main_window(&app);
+                    }
+                    BrowserResponse::ok()
+                }
+                Err(e) => BrowserResponse::error(e.to_string()),
+            }
         }
     }
 }
@@ -148,7 +179,8 @@ pub fn run() {
             let handle = app.handle().clone();
             runtime.spawn(async move {
                 let handler_app = handle.clone();
-                let handler: ipc::Handler = Arc::new(move |req| handle_browser_request(&handler_app, req));
+                let handler: ipc::Handler =
+                    Arc::new(move |req| Box::pin(handle_browser_request(handler_app.clone(), req)));
                 #[cfg(windows)]
                 if let Err(e) = ipc::serve(ipc::pipe_name(), token, handler).await {
                     eprintln!("[bdm] browser integration unavailable: {e}");

@@ -28,9 +28,21 @@
     "page": "options/options.html",
     "open_in_tab": true
   },
-  "permissions": ["downloads", "contextMenus", "nativeMessaging", "storage", "activeTab"],
-  "optional_permissions": ["webRequest"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": [
+    "downloads",
+    "contextMenus",
+    "nativeMessaging",
+    "storage",
+    "activeTab"
+  ],
+  "optional_permissions": [
+    "webRequest",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
   }

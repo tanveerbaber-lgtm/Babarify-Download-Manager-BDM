@@ -2,7 +2,9 @@ import { DEFAULT_SETTINGS, normalizeSettings, parseList } from "../src/rules.js"
 import { connectionState } from "../src/native.js";
 
 const $ = (id) => document.getElementById(id);
-const MEDIA_PERMISSIONS = { permissions: ["webRequest"], origins: ["http://*/*", "https://*/*"] };
+const SITE_ORIGINS = ["http://*/*", "https://*/*"];
+const MEDIA_PERMISSIONS = { permissions: ["webRequest"], origins: SITE_ORIGINS };
+const PANEL_PERMISSIONS = { permissions: ["scripting"], origins: SITE_ORIGINS };
 
 function fill(s) {
   $("capture").checked = s.capture;
@@ -10,6 +12,7 @@ function fill(s) {
   $("min-size").value = String(s.minSizeMb);
   $("excluded").value = s.excludedHosts.join("\n");
   $("detect").checked = s.detectMedia;
+  $("panel").checked = s.videoPanel;
 }
 
 function read() {
@@ -19,6 +22,7 @@ function read() {
     minSizeMb: Number($("min-size").value || 0),
     excludedHosts: parseList($("excluded").value),
     detectMedia: $("detect").checked,
+    videoPanel: $("panel").checked,
   });
 }
 
@@ -47,14 +51,20 @@ async function main() {
   fill(normalizeSettings(settings));
   testConnection();
 
-  // Permission prompts must come straight from the click.
-  $("detect").addEventListener("change", async (e) => {
+  // Permission prompts must come straight from the click. Site access is
+  // shared by both features, so it's only given up when neither needs it.
+  const toggle = (id, perms, otherId) => async (e) => {
     if (e.target.checked) {
-      e.target.checked = await chrome.permissions.request(MEDIA_PERMISSIONS);
+      e.target.checked = await chrome.permissions.request(perms);
     } else {
-      await chrome.permissions.remove(MEDIA_PERMISSIONS);
+      await chrome.permissions.remove({ permissions: perms.permissions });
+      if (!$(otherId).checked) await chrome.permissions.remove({ origins: SITE_ORIGINS });
     }
-  });
+    // Takes effect right away, without pressing Save.
+    await save(read());
+  };
+  $("detect").addEventListener("change", toggle("detect", MEDIA_PERMISSIONS, "panel"));
+  $("panel").addEventListener("change", toggle("panel", PANEL_PERMISSIONS, "detect"));
   $("save").addEventListener("click", () => save(read()));
   $("defaults").addEventListener("click", () => save(normalizeSettings(DEFAULT_SETTINGS)));
   $("test").addEventListener("click", testConnection);
