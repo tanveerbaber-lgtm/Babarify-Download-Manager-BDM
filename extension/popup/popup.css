@@ -84,6 +84,14 @@ h2 {
   font-size: 11px;
 }
 
+.error-detail {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+  word-break: break-word;
+}
+
 .error {
   margin: 0;
   padding: 8px 10px;

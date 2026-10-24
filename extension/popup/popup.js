@@ -3,8 +3,14 @@ import { connectionState } from "../src/native.js";
 
 const $ = (id) => document.getElementById(id);
 
-function showError(text) {
+function showError(text, detail) {
   $("error").textContent = text;
+  if (detail && detail !== text) {
+    const small = document.createElement("small");
+    small.className = "error-detail";
+    small.textContent = `Browser said: ${detail}`;
+    $("error").append(small);
+  }
   $("error").hidden = !text;
 }
 
@@ -15,12 +21,12 @@ async function send(payload) {
 }
 
 async function renderStatus() {
-  const { state, version, error } = await connectionState();
+  const { state, version, error, detail } = await connectionState();
   const line = $("status");
   line.dataset.state = state;
   $("status-text").textContent =
     state === "running" ? `Connected to BDM${version ? ` ${version}` : ""}` : state === "stopped" ? "BDM will start when needed" : "BDM isn't connected";
-  if (state === "missing") showError(error);
+  if (state === "missing") showError(error, detail);
   return state;
 }
 

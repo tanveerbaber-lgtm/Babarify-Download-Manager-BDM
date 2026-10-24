@@ -87,6 +87,9 @@ export function BrowserView({ settings, onUpdate }: BrowserViewProps) {
             Choose <strong>Load unpacked</strong> and select the <code>extension</code> folder inside the BDM project.
           </li>
           <li>Pin the BDM button to the toolbar. Its popup shows whether it can reach BDM.</li>
+          <li>
+            If you connected while the browser was open and the popup says BDM isn't connected, <strong>restart the browser</strong> once.
+          </li>
         </ol>
         <p className="hint">Store versions of the extension will replace these steps when BDM is released.</p>
       </section>

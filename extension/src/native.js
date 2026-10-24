@@ -18,7 +18,11 @@ export async function sendToBdm(message) {
     return {
       ok: false,
       notInstalled,
-      error: notInstalled ? "BDM isn't connected to this browser. Open BDM → Browser integration → Connect." : text,
+      error: notInstalled
+        ? "BDM isn't connected to this browser. Open BDM → Browser integration → Connect, then restart the browser. (Browsers running as administrator ignore per-user helpers.)"
+        : text,
+      // The browser's own wording, shown as a detail for troubleshooting.
+      detail: text,
     };
   }
 }
@@ -27,5 +31,5 @@ export async function sendToBdm(message) {
 export async function connectionState() {
   const reply = await sendToBdm({ type: "ping" });
   if (reply.ok) return { state: reply.app === "running" ? "running" : "stopped", version: reply.version ?? null };
-  return { state: "missing", error: reply.error };
+  return { state: "missing", error: reply.error, detail: reply.detail };
 }

@@ -96,6 +96,9 @@ cd src-tauri; npx tauri icon ../assets/brand/bdm-app-icon.svg -o icons
 1. Run BDM, open **Browser integration** and choose **Connect Chrome and Edge**.
 2. In `chrome://extensions` or `edge://extensions`, turn on Developer mode, choose **Load unpacked** and select the `extension` folder.
 3. The extension's ID is fixed (`emaohblojdddihemfkbcchbfgaaanjkb`), so the connection works straight away.
+4. If the popup still says "BDM isn't connected" right after connecting, restart the browser once.
+
+When BDM isn't running, the browser starts whichever BDM build you ran last. A development build (`npm run tauri dev`) needs its dev server, so for everyday use run the release build (`npx tauri build --no-bundle` → `src-tauri	argeteleasedm.exe`) once and choose **Repair connection** on the Browser integration page.
 
 ## Documentation
 
