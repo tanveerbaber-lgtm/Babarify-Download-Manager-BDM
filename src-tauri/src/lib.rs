@@ -1,7 +1,9 @@
 //! Babarify Download Manager — Rust core.
 
+mod batch;
 pub mod browser;
 mod commands;
+mod completion;
 mod db;
 mod engine;
 mod error;
@@ -50,7 +52,25 @@ impl EventSink for TauriSink {
     fn tool_progress(&self, progress: &ToolProgress) {
         let _ = self.0.emit(EVENT_TOOL_PROGRESS, progress);
     }
+
+    fn completed(&self, download: &Download) {
+        completion::on_completed(&self.0, download);
+    }
+
+    fn failed(&self, download: &Download) {
+        completion::on_failed(&self.0, download);
+    }
+
+    fn all_done(&self) {
+        completion::on_all_done(&self.0);
+    }
+
+    fn queues_changed(&self) {
+        let _ = self.0.emit(EVENT_QUEUES_CHANGED, ());
+    }
 }
+
+pub const EVENT_QUEUES_CHANGED: &str = "queues:changed";
 
 pub const EVENT_BROWSER_ADDED: &str = "browser:added";
 pub const EVENT_BROWSER_MEDIA: &str = "browser:media";
@@ -139,6 +159,8 @@ pub fn run() {
         // focuses the running instance.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let paths = app.path();
             let data_dir = paths.app_data_dir()?;
@@ -149,6 +171,9 @@ pub fn run() {
                 .into_owned();
 
             let database = Arc::new(db::Database::new(db::open(&data_dir.join(DATABASE_FILE))?));
+            if let Err(e) = db::categories::backfill(&*database.lock()?) {
+                eprintln!("[bdm] couldn't sort old downloads into categories: {e}");
+            }
             let runtime = tauri::async_runtime::block_on(async { tokio::runtime::Handle::current() });
             let sink: Arc<dyn EventSink> = Arc::new(TauriSink(app.handle().clone()));
             let config = EngineConfig::default();
@@ -209,6 +234,26 @@ pub fn run() {
             commands::get_browser_integration,
             commands::register_browser_integration,
             commands::unregister_browser_integration,
+            commands::add_batch,
+            commands::expand_batch_pattern,
+            commands::import_url_list,
+            commands::find_duplicate,
+            commands::list_queues,
+            commands::save_queue,
+            commands::delete_queue,
+            commands::start_queue,
+            commands::stop_queue,
+            commands::list_categories,
+            commands::save_category,
+            commands::delete_category,
+            commands::set_download_priority,
+            commands::move_downloads_to_queue,
+            commands::move_downloads_in_queue,
+            commands::set_download_speed_limit,
+            commands::redownload,
+            commands::clear_finished,
+            commands::open_download,
+            commands::show_in_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

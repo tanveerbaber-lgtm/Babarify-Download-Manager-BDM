@@ -119,6 +119,15 @@ pub fn download_args(
     args
 }
 
+/// Speed limit (bytes/s) and retry counts for yt-dlp.
+pub fn limit_args(rate: Option<u64>, retries: u32) -> Vec<String> {
+    let mut args = vec!["-R".to_string(), retries.to_string(), "--fragment-retries".into(), retries.to_string()];
+    if let Some(r) = rate.filter(|r| *r > 0) {
+        args.extend(["-r".to_string(), r.to_string()]);
+    }
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,6 +172,8 @@ mod tests {
         assert!(args.windows(2).any(|w| w == ["--referer", "https://e.com/page"]));
         let n = args.len();
         assert_eq!(&args[n - 2..], ["--", "https://e.com/v"]);
+        assert_eq!(limit_args(Some(524_288), 3), ["-R", "3", "--fragment-retries", "3", "-r", "524288"]);
+        assert_eq!(limit_args(None, 0).len(), 4);
         assert!(args.windows(2).any(|w| w == ["--js-runtimes", "deno:C:\\t\\deno.exe"]));
         assert!(args.windows(2).any(|w| w == ["-N", "4"]));
         assert!(args.contains(&"--ignore-config".to_string()));

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, EVENTS } from "../lib/api";
-import type { AppError, Download, NewDownloadRequest, NewMediaRequest, Progress } from "../lib/types";
+import type { AppError, BatchRequest, Download, NewDownloadRequest, NewMediaRequest, Progress } from "../lib/types";
 
 export type BulkAction = "resume" | "pause" | "cancel" | "remove";
 
@@ -87,6 +87,26 @@ export function useDownloads() {
     return created;
   }, []);
 
+  const addBatch = useCallback(async (request: BatchRequest) => {
+    const created = await api.addBatch(request);
+    setDownloads((prev) => {
+      const known = new Set(prev.map((d) => d.id));
+      return [...created.filter((d) => !known.has(d.id)).reverse(), ...prev];
+    });
+    return created;
+  }, []);
+
+  /** Applies records returned by a bulk command. */
+  const merge = useCallback((updated: Download[]) => {
+    setDownloads((prev) => updated.reduce((acc, d) => upsert(acc, d), prev));
+  }, []);
+
+  /** Drops records the backend removed (e.g. "clear finished"). */
+  const forget = useCallback((ids: string[]) => {
+    const gone = new Set(ids);
+    setDownloads((prev) => prev.filter((d) => !gone.has(d.id)));
+  }, []);
+
   /** Runs an action on each id; returns the first error message, if any. */
   const run = useCallback(async (action: BulkAction, ids: string[]) => {
     let firstError: string | null = null;
@@ -101,5 +121,5 @@ export function useDownloads() {
     return firstError;
   }, []);
 
-  return { downloads, progress, loading, error, refresh, add, addMedia, run };
+  return { downloads, progress, loading, error, refresh, add, addMedia, addBatch, merge, forget, run };
 }

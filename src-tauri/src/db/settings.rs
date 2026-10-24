@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 
 use crate::db::now_ms;
 use crate::error::{AppError, AppResult};
-use crate::models::{Settings, SettingsPatch, Theme};
+use crate::models::{DuplicateAction, Settings, SettingsPatch, Theme, WhenDone};
 use crate::validation::validate_destination_dir;
 
 pub const MIN_CONCURRENT: u32 = 1;
@@ -24,6 +24,19 @@ const KEY_SEGMENTS: &str = "segments_per_download";
 const KEY_CONFIRM_REMOVE: &str = "confirm_before_remove";
 const KEY_AUTO_UPDATE_YT_DLP: &str = "auto_update_yt_dlp";
 const KEY_SHOW_ON_BROWSER_ADD: &str = "show_on_browser_add";
+const KEY_SPEED_LIMIT: &str = "speed_limit_kbps";
+const KEY_MAX_RETRIES: &str = "max_retries";
+const KEY_AUTO_RETRY_COUNT: &str = "auto_retry_count";
+const KEY_AUTO_RETRY_DELAY: &str = "auto_retry_delay_minutes";
+const KEY_SORT_CATEGORIES: &str = "sort_into_categories";
+const KEY_NOTIFY_COMPLETE: &str = "notify_on_complete";
+const KEY_NOTIFY_FAILURE: &str = "notify_on_failure";
+const KEY_WHEN_ALL_DONE: &str = "when_all_done";
+const KEY_DUPLICATE_ACTION: &str = "duplicate_action";
+
+pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
+pub const MAX_RETRIES_LIMIT: u32 = 10;
+pub const MAX_AUTO_RETRY_DELAY: u32 = 24 * 60;
 
 /// Loads settings, using `fallback_download_dir` when none has been saved.
 pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Settings> {
@@ -40,6 +53,17 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         confirm_before_remove: read(conn, KEY_CONFIRM_REMOVE)?.unwrap_or(true),
         auto_update_yt_dlp: read(conn, KEY_AUTO_UPDATE_YT_DLP)?.unwrap_or(true),
         show_on_browser_add: read(conn, KEY_SHOW_ON_BROWSER_ADD)?.unwrap_or(true),
+        speed_limit_kbps: read(conn, KEY_SPEED_LIMIT)?.filter(|n| *n <= MAX_SPEED_LIMIT_KBPS).unwrap_or(0),
+        max_retries: read(conn, KEY_MAX_RETRIES)?.filter(|n| *n <= MAX_RETRIES_LIMIT).unwrap_or(5),
+        auto_retry_count: read(conn, KEY_AUTO_RETRY_COUNT)?.filter(|n| *n <= MAX_RETRIES_LIMIT).unwrap_or(2),
+        auto_retry_delay_minutes: read(conn, KEY_AUTO_RETRY_DELAY)?
+            .filter(|n| (1..=MAX_AUTO_RETRY_DELAY).contains(n))
+            .unwrap_or(5),
+        sort_into_categories: read(conn, KEY_SORT_CATEGORIES)?.unwrap_or(true),
+        notify_on_complete: read(conn, KEY_NOTIFY_COMPLETE)?.unwrap_or(true),
+        notify_on_failure: read(conn, KEY_NOTIFY_FAILURE)?.unwrap_or(true),
+        when_all_done: read(conn, KEY_WHEN_ALL_DONE)?.unwrap_or(WhenDone::Nothing),
+        duplicate_action: read(conn, KEY_DUPLICATE_ACTION)?.unwrap_or(DuplicateAction::Add),
     })
 }
 
@@ -68,6 +92,17 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
         )));
     }
 
+    let range = |v: Option<u32>, lo: u32, hi: u32, what: &str| -> AppResult<()> {
+        match v {
+            Some(n) if !(lo..=hi).contains(&n) => Err(AppError::Validation(format!("{what} must be between {lo} and {hi}."))),
+            _ => Ok(()),
+        }
+    };
+    range(patch.speed_limit_kbps, 0, MAX_SPEED_LIMIT_KBPS, "The speed limit")?;
+    range(patch.max_retries, 0, MAX_RETRIES_LIMIT, "Retries")?;
+    range(patch.auto_retry_count, 0, MAX_RETRIES_LIMIT, "Automatic retries")?;
+    range(patch.auto_retry_delay_minutes, 1, MAX_AUTO_RETRY_DELAY, "The retry delay")?;
+
     let tx = conn.transaction()?;
     if let Some(theme) = patch.theme {
         write(&tx, KEY_THEME, &theme)?;
@@ -89,6 +124,33 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     }
     if let Some(show) = patch.show_on_browser_add {
         write(&tx, KEY_SHOW_ON_BROWSER_ADD, &show)?;
+    }
+    if let Some(v) = patch.speed_limit_kbps {
+        write(&tx, KEY_SPEED_LIMIT, &v)?;
+    }
+    if let Some(v) = patch.max_retries {
+        write(&tx, KEY_MAX_RETRIES, &v)?;
+    }
+    if let Some(v) = patch.auto_retry_count {
+        write(&tx, KEY_AUTO_RETRY_COUNT, &v)?;
+    }
+    if let Some(v) = patch.auto_retry_delay_minutes {
+        write(&tx, KEY_AUTO_RETRY_DELAY, &v)?;
+    }
+    if let Some(v) = patch.sort_into_categories {
+        write(&tx, KEY_SORT_CATEGORIES, &v)?;
+    }
+    if let Some(v) = patch.notify_on_complete {
+        write(&tx, KEY_NOTIFY_COMPLETE, &v)?;
+    }
+    if let Some(v) = patch.notify_on_failure {
+        write(&tx, KEY_NOTIFY_FAILURE, &v)?;
+    }
+    if let Some(v) = patch.when_all_done {
+        write(&tx, KEY_WHEN_ALL_DONE, &v)?;
+    }
+    if let Some(v) = patch.duplicate_action {
+        write(&tx, KEY_DUPLICATE_ACTION, &v)?;
     }
     tx.commit()?;
     Ok(())
@@ -142,12 +204,25 @@ mod tests {
             confirm_before_remove: Some(false),
             auto_update_yt_dlp: Some(false),
             show_on_browser_add: Some(false),
+            speed_limit_kbps: Some(512),
+            max_retries: Some(3),
+            auto_retry_count: Some(1),
+            auto_retry_delay_minutes: Some(10),
+            sort_into_categories: Some(false),
+            notify_on_complete: Some(false),
+            notify_on_failure: Some(false),
+            when_all_done: Some(WhenDone::Sleep),
+            duplicate_action: Some(DuplicateAction::Skip),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();
         assert_eq!(s.theme, Theme::Dark);
         assert_eq!(s.max_concurrent_downloads, 5);
         assert_eq!(s.segments_per_download, 4);
+        assert_eq!(s.speed_limit_kbps, 512);
+        assert_eq!(s.when_all_done, WhenDone::Sleep);
+        assert_eq!(s.duplicate_action, DuplicateAction::Skip);
+        assert!(!s.sort_into_categories);
         assert!(!s.confirm_before_remove);
         assert_ne!(s.default_download_dir, "unused");
     }

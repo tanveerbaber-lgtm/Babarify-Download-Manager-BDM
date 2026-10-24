@@ -104,7 +104,15 @@ Events (engine → webview): `download:progress` (`{id, downloadedBytes, totalBy
 
 ## Download engine (M2)
 
-**Scheduler** (`engine/mod.rs`): a FIFO queue and a map of active downloads, each with a cancellation token and a stop reason (pause / cancel / remove). Up to `max_concurrent_downloads` run at once; a slot frees when a task ends. On launch, `downloading` rows become `paused` ("Interrupted…") and `queued` rows are re-queued in order.
+**Scheduler** (`engine/mod.rs`): the database is the queue. Queued downloads start in priority order (high → low), then queue position, and only from queues that are running; up to `max_concurrent_downloads` run at once across all queues. Each active download has a cancellation token, a stop reason (pause / cancel / remove / requeue) and its own rate limiter. A ticker (every 15 s, `engine/schedule.rs`) applies schedule starts and stops between ticks in local time (overnight windows belong to their start day), requeues the running downloads of a queue that stops, stops scheduled queues that run dry, and fires due automatic retries. On launch, `downloading` rows become `paused` ("Interrupted…"), queued rows start again, and a queue whose window is open starts.
+
+**Speed limits** (`engine/limiter.rs`): token buckets with at most 0.5 s of burst; every chunk waits on the global bucket and the download's own, and changes apply on the next chunk. yt-dlp gets the tighter of the two as `-r`.
+
+**Retries**: within one attempt, transient errors retry up to `max_retries` times with backoff. A failed download whose error might be temporary (network, 5xx/429, changed file, yt-dlp failure) gets `auto_retry_count` automatic retries after `auto_retry_delay_minutes`; broken links, sign-in pages and checksum failures never do.
+
+**Completion** (`completion.rs`): the engine reports completed / failed / all-done through `EventSink`; the app shows Windows notifications and runs the "when all done" action (sleep via `SetSuspendState`, `shutdown /s /t 60`, or exit) once, then resets it to "do nothing".
+
+**Queues and categories** (migration 0005): `queues(id, name, schedule JSON, running, sort_order)` with a permanent `main` row; `categories(id, name, extensions, folder)`; downloads gained `queue_id, priority, position, category, speed_limit, auto_retries, retry_at`. New downloads without a chosen folder go to `<default folder>\<Category>` when sorting is on.
 
 **Per download** (`engine/task.rs`):
 

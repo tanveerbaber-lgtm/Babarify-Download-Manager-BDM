@@ -45,6 +45,57 @@ export interface Download {
   /** Server supports byte ranges, so pausing doesn't lose progress. */
   resumable: boolean;
   expectedSha256: string | null;
+  /** Page that linked to the file. */
+  referrer: string | null;
+  queueId: string;
+  /** -1 low, 0 normal, 1 high. */
+  priority: Priority;
+  /** Order within the queue; lower starts first at equal priority. */
+  position: number;
+  /** Category id, e.g. "videos"; null for other files. */
+  category: string | null;
+  /** The download's own speed limit in bytes/s. */
+  speedLimit: number | null;
+  /** Automatic retries already used. */
+  autoRetries: number;
+  /** When the next automatic retry is due (unix ms). */
+  retryAt: number | null;
+}
+
+export type Priority = -1 | 0 | 1;
+
+export interface QueueSchedule {
+  enabled: boolean;
+  /** Local time "HH:MM". */
+  start: string;
+  /** Local time "HH:MM"; null keeps going until the queue is empty. */
+  stop: string | null;
+  /** 0 = Monday … 6 = Sunday. */
+  days: number[];
+}
+
+export interface Queue {
+  id: string;
+  name: string;
+  schedule: QueueSchedule;
+  running: boolean;
+  sortOrder: number;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  extensions: string[];
+  /** Absolute folder; null = a subfolder of the default download folder. */
+  folder: string | null;
+  sortOrder: number;
+}
+
+export interface BatchRequest {
+  urls: string[];
+  destinationDir?: string;
+  queueId?: string;
+  start?: boolean;
 }
 
 /** Payload of the `download:progress` event. */
@@ -68,7 +119,14 @@ export interface NewDownloadRequest {
   expectedSha256?: string;
   /** Start right away (default) or leave pending. */
   start?: boolean;
+  queueId?: string;
+  priority?: Priority;
+  /** The download's own speed limit in KB/s. */
+  speedLimitKbps?: number;
 }
+
+export type WhenDone = "nothing" | "sleep" | "shutdown" | "exit";
+export type DuplicateAction = "add" | "skip";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -80,6 +138,16 @@ export interface Settings {
   confirmBeforeRemove: boolean;
   autoUpdateYtDlp: boolean;
   showOnBrowserAdd: boolean;
+  /** KB/s; 0 = unlimited. */
+  speedLimitKbps: number;
+  maxRetries: number;
+  autoRetryCount: number;
+  autoRetryDelayMinutes: number;
+  sortIntoCategories: boolean;
+  notifyOnComplete: boolean;
+  notifyOnFailure: boolean;
+  whenAllDone: WhenDone;
+  duplicateAction: DuplicateAction;
 }
 
 export type SettingsPatch = Partial<Settings>;

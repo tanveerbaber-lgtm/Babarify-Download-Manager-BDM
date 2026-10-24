@@ -121,6 +121,19 @@ pub struct Download {
     pub expected_sha256: Option<String>,
     /// Page that linked to the file (sent as Referer).
     pub referrer: Option<String>,
+    pub queue_id: String,
+    /// -1 low, 0 normal, 1 high.
+    pub priority: i32,
+    /// Order within its queue (lower starts first at equal priority).
+    pub position: i64,
+    /// Category id (e.g. "videos"); `None` for other files.
+    pub category: Option<String>,
+    /// Per-download speed limit in bytes/s.
+    pub speed_limit: Option<i64>,
+    /// Automatic retries already used after failures.
+    pub auto_retries: i64,
+    /// When the next automatic retry is due (unix ms).
+    pub retry_at: Option<i64>,
     #[serde(skip)]
     pub temp_path: Option<String>,
     #[serde(skip)]
@@ -161,6 +174,74 @@ pub struct NewDownloadRequest {
     pub expected_sha256: Option<String>,
     /// Start immediately (default) or leave the download pending.
     pub start: Option<bool>,
+    /// Queue to add it to; Main when omitted.
+    pub queue_id: Option<String>,
+    /// -1 low, 0 normal (default), 1 high.
+    pub priority: Option<i32>,
+    /// The download's own speed limit in KB/s.
+    pub speed_limit_kbps: Option<u32>,
+}
+
+/// When a queue may start downloads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QueueSchedule {
+    /// Off = the queue runs whenever it's started.
+    pub enabled: bool,
+    /// Local time "HH:MM".
+    pub start: String,
+    /// Local time "HH:MM"; `None` = keep going until the queue is empty.
+    pub stop: Option<String>,
+    /// Days the window opens on: 0 = Monday … 6 = Sunday.
+    pub days: Vec<u8>,
+}
+
+impl Default for QueueSchedule {
+    fn default() -> Self {
+        Self { enabled: false, start: "00:00".into(), stop: None, days: (0..7).collect() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Queue {
+    pub id: String,
+    pub name: String,
+    pub schedule: QueueSchedule,
+    pub running: bool,
+    pub sort_order: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Category {
+    pub id: String,
+    pub name: String,
+    /// Lowercase extensions without dots.
+    pub extensions: Vec<String>,
+    /// Absolute folder; `None` = a subfolder of the default download folder.
+    pub folder: Option<String>,
+    pub sort_order: i64,
+}
+
+/// What BDM does when every download has finished.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WhenDone {
+    Nothing,
+    Sleep,
+    Shutdown,
+    Exit,
+}
+
+/// What happens when the browser sends a link BDM has already downloaded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DuplicateAction {
+    /// Download it again (saved as "name (1).ext").
+    Add,
+    /// Skip it and say so.
+    Skip,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,6 +264,20 @@ pub struct Settings {
     pub auto_update_yt_dlp: bool,
     /// Bring BDM to the front when the browser sends it something.
     pub show_on_browser_add: bool,
+    /// Global speed limit in KB/s; 0 = unlimited.
+    pub speed_limit_kbps: u32,
+    /// Retries within one attempt (dropped connections, timeouts, 5xx).
+    pub max_retries: u32,
+    /// Automatic retries of a failed download.
+    pub auto_retry_count: u32,
+    /// Minutes before an automatic retry.
+    pub auto_retry_delay_minutes: u32,
+    /// Put downloads in their category's folder.
+    pub sort_into_categories: bool,
+    pub notify_on_complete: bool,
+    pub notify_on_failure: bool,
+    pub when_all_done: WhenDone,
+    pub duplicate_action: DuplicateAction,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -196,6 +291,15 @@ pub struct SettingsPatch {
     pub confirm_before_remove: Option<bool>,
     pub auto_update_yt_dlp: Option<bool>,
     pub show_on_browser_add: Option<bool>,
+    pub speed_limit_kbps: Option<u32>,
+    pub max_retries: Option<u32>,
+    pub auto_retry_count: Option<u32>,
+    pub auto_retry_delay_minutes: Option<u32>,
+    pub sort_into_categories: Option<bool>,
+    pub notify_on_complete: Option<bool>,
+    pub notify_on_failure: Option<bool>,
+    pub when_all_done: Option<WhenDone>,
+    pub duplicate_action: Option<DuplicateAction>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -10,14 +10,17 @@ use crate::test_server::{self as server, FileSpec, TestServer, test_data};
 use super::events::{EventSink, Progress};
 use super::files::TEMP_EXTENSION;
 use super::{Engine, EngineConfig};
-use crate::db::{self, Database, downloads};
-use crate::models::{Download, DownloadStatus};
+use crate::db::{self, Database, downloads, queues};
+use crate::models::{Download, DownloadStatus, QueueSchedule};
 
 #[derive(Default)]
 struct RecordingSink {
     progress: Mutex<Vec<Progress>>,
     updates: Mutex<Vec<Download>>,
     removed: Mutex<Vec<String>>,
+    completed: Mutex<Vec<String>>,
+    failed: Mutex<Vec<String>>,
+    all_done: std::sync::atomic::AtomicUsize,
 }
 
 impl EventSink for RecordingSink {
@@ -30,13 +33,21 @@ impl EventSink for RecordingSink {
     fn removed(&self, id: &str) {
         self.removed.lock().unwrap().push(id.to_string());
     }
+    fn completed(&self, d: &Download) {
+        self.completed.lock().unwrap().push(d.id.clone());
+    }
+    fn failed(&self, d: &Download) {
+        self.failed.lock().unwrap().push(d.id.clone());
+    }
+    fn all_done(&self) {
+        self.all_done.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 fn test_config() -> EngineConfig {
     EngineConfig {
         connect_timeout: Duration::from_secs(2),
         read_timeout: Duration::from_millis(800),
-        max_retries: 5,
         retry_base_delay: Duration::from_millis(20),
         max_retry_delay: Duration::from_millis(200),
         min_segment_size: 64 * 1024,
@@ -104,6 +115,10 @@ impl Harness {
                 title: None,
                 media_options: None,
                 referrer: None,
+                queue_id: "main",
+                priority: 0,
+                category: None,
+                speed_limit: None,
             },
         )
         .unwrap()
@@ -584,4 +599,213 @@ async fn survives_many_drops_on_a_throttled_server() {
     let d = h.wait_done(&id).await;
     assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
     assert_eq!(read(&d.saved_path), data);
+}
+
+// ------------------------------------------------------------- M5: queues
+
+impl Harness {
+    fn insert_in(&self, path: &str, file_name: &str, queue_id: &str, priority: i32, speed_limit: Option<i64>) -> String {
+        let conn = self.db.lock().unwrap();
+        downloads::insert(
+            &conn,
+            &downloads::InsertDownload {
+                url: &self.server.url(path),
+                file_name,
+                destination_dir: &self.dir.path().to_string_lossy(),
+                expected_sha256: None,
+                kind: crate::models::DownloadKind::File,
+                title: None,
+                media_options: None,
+                referrer: None,
+                queue_id,
+                priority,
+                category: None,
+                speed_limit,
+            },
+        )
+        .unwrap()
+        .id
+    }
+
+    fn queue_running(&self, id: &str) -> bool {
+        queues::require(&self.db.lock().unwrap(), id).unwrap().running
+    }
+
+    /// Ids in the order they first started downloading.
+    fn start_order(&self) -> Vec<String> {
+        let mut seen = Vec::new();
+        for d in self.sink.updates.lock().unwrap().iter().filter(|d| d.status == DownloadStatus::Downloading) {
+            if !seen.contains(&d.id) {
+                seen.push(d.id.clone());
+            }
+        }
+        seen
+    }
+}
+
+fn local(h: u32, m: u32) -> chrono::NaiveDateTime {
+    chrono::NaiveDate::from_ymd_opt(2026, 10, 19).unwrap().and_hms_opt(h, m, 0).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn starts_by_priority_then_queue_order() {
+    let h = Harness::new().await;
+    h.engine.set_limits(1, 1).unwrap();
+    h.engine.stop_queue("main").unwrap();
+    for name in ["low.bin", "normal.bin", "high.bin", "normal2.bin"] {
+        h.server.state.add(name, FileSpec::new(test_data(50_000, 50)));
+    }
+    let low = h.insert_in("/files/low.bin", "low.bin", "main", -1, None);
+    let normal = h.insert_in("/files/normal.bin", "normal.bin", "main", 0, None);
+    let high = h.insert_in("/files/high.bin", "high.bin", "main", 1, None);
+    let normal2 = h.insert_in("/files/normal2.bin", "normal2.bin", "main", 0, None);
+    for id in [&low, &normal, &high, &normal2] {
+        h.engine.enqueue(id).unwrap();
+    }
+    assert!(h.start_order().is_empty(), "a stopped queue starts nothing");
+    assert_eq!(h.get(&high).status, DownloadStatus::Queued);
+
+    h.engine.start_queue("main").unwrap();
+    for id in [&low, &normal, &high, &normal2] {
+        assert_eq!(h.wait_done(id).await.status, DownloadStatus::Completed);
+    }
+    assert_eq!(h.start_order(), [high, normal, normal2, low]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn stopping_a_queue_requeues_running_downloads_with_progress() {
+    let h = Harness::new().await;
+    let night = queues::save(&h.db.lock().unwrap(), "Night", &QueueSchedule::default(), None).unwrap();
+    let total = 2 * 1024 * 1024;
+    let data = test_data(total, 51);
+    h.server.state.add("night.bin", FileSpec::new(data.clone()).etag("n").delay(Duration::from_millis(30)));
+    let id = h.insert_in("/files/night.bin", "night.bin", &night.id, 0, None);
+    h.engine.enqueue(&id).unwrap();
+    h.wait_partial(&id).await;
+
+    h.engine.stop_queue(&night.id).unwrap();
+    let waiting = h.wait_status(&id, DownloadStatus::Queued).await;
+    assert!(waiting.downloaded_bytes > 0, "progress is kept");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(h.get(&id).status, DownloadStatus::Queued, "stays put while the queue is stopped");
+
+    h.engine.start_queue(&night.id).unwrap();
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn schedule_starts_and_stops_a_queue() {
+    let h = Harness::new().await;
+    let every_day = QueueSchedule { enabled: true, start: "01:00".into(), stop: Some("02:00".into()), days: (0..7).collect() };
+    let q = queues::save(&h.db.lock().unwrap(), "Overnight", &every_day, None).unwrap();
+    queues::set_running(&h.db.lock().unwrap(), &q.id, false).unwrap();
+    h.server.state.add("s.bin", FileSpec::new(test_data(2 * 1024 * 1024, 52)).etag("s").delay(Duration::from_millis(30)));
+    let id = h.insert_in("/files/s.bin", "s.bin", &q.id, 0, None);
+    h.engine.enqueue(&id).unwrap();
+
+    h.engine.tick_at(local(0, 50), 0).unwrap();
+    assert!(!h.queue_running(&q.id));
+    h.engine.tick_at(local(0, 59), 0).unwrap();
+    assert_eq!(h.get(&id).status, DownloadStatus::Queued);
+
+    h.engine.tick_at(local(1, 0), 0).unwrap();
+    assert!(h.queue_running(&q.id), "window opened");
+    h.wait_partial(&id).await;
+
+    h.engine.tick_at(local(2, 0), 0).unwrap();
+    assert!(!h.queue_running(&q.id), "window closed");
+    let d = h.wait_status(&id, DownloadStatus::Queued).await;
+    assert!(d.downloaded_bytes > 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn launch_inside_a_window_starts_the_queue() {
+    let h = Harness::new().await;
+    let s = QueueSchedule { enabled: true, start: "01:00".into(), stop: Some("05:00".into()), days: (0..7).collect() };
+    let q = queues::save(&h.db.lock().unwrap(), "Overnight", &s, None).unwrap();
+    queues::set_running(&h.db.lock().unwrap(), &q.id, false).unwrap();
+    h.server.state.add("w.bin", FileSpec::new(test_data(20_000, 53)));
+    let id = h.insert_in("/files/w.bin", "w.bin", &q.id, 0, None);
+    downloads::set_status(&h.db.lock().unwrap(), &id, DownloadStatus::Queued, None).unwrap();
+
+    h.engine.tick_at(local(3, 0), 0).unwrap();
+    assert_eq!(h.wait_done(&id).await.status, DownloadStatus::Completed);
+    // Ran dry: a scheduled queue waits for its next window.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while h.queue_running(&q.id) {
+        assert!(Instant::now() < deadline, "queue should stop once empty");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn failed_downloads_retry_automatically_then_give_up() {
+    let h = Harness::new().await;
+    h.engine.set_auto_retry(1, Duration::ZERO);
+    let id = h.add("/status/503", "x.bin");
+    let d = h.wait_for(&id, "a planned retry", |d| d.status == DownloadStatus::Failed && d.retry_at.is_some()).await;
+    assert_eq!(d.auto_retries, 1);
+    assert!(h.sink.failed.lock().unwrap().is_empty(), "no failure notice while a retry is planned");
+
+    h.engine.tick_at(local(12, 0), d.retry_at.unwrap()).unwrap();
+    let d = h.wait_for(&id, "the final failure", |d| d.status == DownloadStatus::Failed && d.retry_at.is_none() && d.updated_at > 0).await;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while h.sink.failed.lock().unwrap().is_empty() {
+        assert!(Instant::now() < deadline, "expected one failure notice");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(d.auto_retries, 1);
+    assert_eq!(h.sink.failed.lock().unwrap().as_slice(), std::slice::from_ref(&id));
+
+    // Broken links aren't retried.
+    let gone = h.add("/status/404", "gone.bin");
+    let d = h.wait_done(&gone).await;
+    assert!(d.retry_at.is_none());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn per_download_speed_limit_is_respected() {
+    let h = Harness::new().await;
+    let data = test_data(600 * 1024, 54);
+    h.server.state.add("limited.bin", FileSpec::new(data.clone()).etag("l"));
+    let id = h.insert_in("/files/limited.bin", "limited.bin", "main", 0, Some(400 * 1024));
+    let started = Instant::now();
+    h.engine.enqueue(&id).unwrap();
+    let d = h.wait_done(&id).await;
+    let secs = started.elapsed().as_secs_f64();
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    assert!(secs >= 1.2, "600 KB at 400 KB/s took only {secs:.2}s");
+
+    // Lifting the limit mid-download takes effect at once.
+    h.server.state.add("lifted.bin", FileSpec::new(test_data(4 * 1024 * 1024, 55)).etag("x"));
+    let id = h.insert_in("/files/lifted.bin", "lifted.bin", "main", 0, Some(100 * 1024));
+    let started = Instant::now();
+    h.engine.enqueue(&id).unwrap();
+    h.wait_partial(&id).await;
+    h.engine.set_speed_limit(&id, None).unwrap();
+    assert_eq!(h.wait_done(&id).await.status, DownloadStatus::Completed);
+    assert!(started.elapsed() < Duration::from_secs(15), "4 MB at 100 KB/s would take 40 s");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn reports_all_done_once_when_the_list_empties() {
+    let h = Harness::new().await;
+    for i in 0..3 {
+        h.server.state.add(&format!("d{i}.bin"), FileSpec::new(test_data(80_000, 60 + i)));
+    }
+    let ids: Vec<String> = (0..3).map(|i| h.add(&format!("/files/d{i}.bin"), &format!("d{i}.bin"))).collect();
+    for id in &ids {
+        assert_eq!(h.wait_done(id).await.status, DownloadStatus::Completed);
+    }
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while h.sink.all_done.load(std::sync::atomic::Ordering::SeqCst) == 0 {
+        assert!(Instant::now() < deadline, "all_done not reported");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(h.sink.all_done.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(h.sink.completed.lock().unwrap().len(), 3);
 }

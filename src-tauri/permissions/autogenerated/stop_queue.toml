@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-queue"
+description = "Enables the stop_queue command without any pre-configured scope."
+commands.allow = ["stop_queue"]
+
+[[permission]]
+identifier = "deny-stop-queue"
+description = "Denies the stop_queue command without any pre-configured scope."
+commands.deny = ["stop_queue"]

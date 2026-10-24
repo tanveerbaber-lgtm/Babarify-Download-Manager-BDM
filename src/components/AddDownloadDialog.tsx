@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Link2, X } from "lucide-react";
+import { FolderOpen, History, Link2, X } from "lucide-react";
 import { Modal } from "./Modal";
 import { MediaForm } from "./MediaForm";
 import { api } from "../lib/api";
-import type { AppError, Download, NewDownloadRequest, NewMediaRequest } from "../lib/types";
+import { formatDate } from "../lib/format";
+import type { AppError, Download, NewDownloadRequest, NewMediaRequest, Priority, Queue } from "../lib/types";
 
 /** Sites where a link is usually a page with a video rather than a file. */
 const VIDEO_SITES = /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com|archive\.org|tiktok\.com|bilibili\.com|instagram\.com|facebook\.com|x\.com|twitter\.com)$/i;
@@ -20,6 +21,9 @@ function looksLikeVideoPage(raw: string): boolean {
 interface AddDownloadDialogProps {
   open: boolean;
   defaultDir: string;
+  /** When on, an empty folder means "the file type's folder". */
+  sortIntoCategories: boolean;
+  queues: Queue[];
   onClose: () => void;
   onAdd: (request: NewDownloadRequest) => Promise<Download>;
   onAddMedia: (request: NewMediaRequest) => Promise<Download[]>;
@@ -30,11 +34,13 @@ interface AddDownloadDialogProps {
 
 export type Tab = "file" | "media";
 
-export function AddDownloadDialog({ open, defaultDir, onClose, onAdd, onAddMedia, initialTab, initialMediaUrl }: AddDownloadDialogProps) {
+export function AddDownloadDialog({ open, defaultDir, sortIntoCategories, queues, onClose, onAdd, onAddMedia, initialTab, initialMediaUrl }: AddDownloadDialogProps) {
   return (
     <Modal open={open} title="Add download" onClose={onClose} className="add-dialog">
       <AddDownloadTabs
         defaultDir={defaultDir}
+        sortIntoCategories={sortIntoCategories}
+        queues={queues}
         onClose={onClose}
         onAdd={onAdd}
         onAddMedia={onAddMedia}
@@ -49,6 +55,8 @@ function AddDownloadTabs(props: Omit<AddDownloadDialogProps, "open">) {
   const [tab, setTab] = useState<Tab>(props.initialTab ?? "file");
   const [mediaUrl, setMediaUrl] = useState(props.initialMediaUrl ?? "");
   const [autoAnalyze, setAutoAnalyze] = useState(!!props.initialMediaUrl);
+  // Empty = let BDM pick the category folder.
+  const initialDir = props.sortIntoCategories ? "" : props.defaultDir;
   return (
     <>
       <div className="tabs" role="tablist" aria-label="Download type">
@@ -64,7 +72,8 @@ function AddDownloadTabs(props: Omit<AddDownloadDialogProps, "open">) {
       </div>
       {tab === "file" ? (
         <AddDownloadForm
-          defaultDir={props.defaultDir}
+          defaultDir={initialDir}
+          queues={props.queues}
           onClose={props.onClose}
           onAdd={props.onAdd}
           onSwitchToMedia={(url) => {
@@ -75,7 +84,7 @@ function AddDownloadTabs(props: Omit<AddDownloadDialogProps, "open">) {
         />
       ) : (
         <MediaForm
-          defaultDir={props.defaultDir}
+          defaultDir={initialDir}
           initialUrl={mediaUrl}
           autoAnalyze={autoAnalyze}
           onClose={props.onClose}
@@ -88,18 +97,23 @@ function AddDownloadTabs(props: Omit<AddDownloadDialogProps, "open">) {
 
 interface AddDownloadFormProps {
   defaultDir: string;
+  queues: Queue[];
   onClose: () => void;
   onAdd: (request: NewDownloadRequest) => Promise<Download>;
   onSwitchToMedia: (url: string) => void;
 }
 
-function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDownloadFormProps) {
+function AddDownloadForm({ defaultDir, queues, onClose, onAdd, onSwitchToMedia }: AddDownloadFormProps) {
   const [url, setUrl] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileNameEdited, setFileNameEdited] = useState(false);
   const [destinationDir, setDestinationDir] = useState(defaultDir);
   const [sha256, setSha256] = useState("");
   const [startNow, setStartNow] = useState(true);
+  const [queueId, setQueueId] = useState("main");
+  const [priority, setPriority] = useState<Priority>(0);
+  const [speedLimit, setSpeedLimit] = useState("");
+  const [duplicate, setDuplicate] = useState<Download | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const urlInput = useRef<HTMLInputElement>(null);
@@ -129,6 +143,24 @@ function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDow
     };
   }, [url, fileNameEdited]);
 
+  // Warn when this link was downloaded before.
+  useEffect(() => {
+    const trimmed = url.trim();
+    setDuplicate(null);
+    if (!/^https?:\/\//i.test(trimmed)) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api
+        .findDuplicate(trimmed)
+        .then((d) => !cancelled && setDuplicate(d))
+        .catch(() => {});
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [url]);
+
   async function browse() {
     const picked = await openFolderPicker({
       directory: true,
@@ -150,6 +182,9 @@ function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDow
         destinationDir: destinationDir.trim() || undefined,
         expectedSha256: sha256.trim() || undefined,
         start: startNow,
+        queueId,
+        priority,
+        speedLimitKbps: Number(speedLimit) > 0 ? Number(speedLimit) : undefined,
       });
       onClose();
     } catch (err) {
@@ -187,6 +222,15 @@ function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDow
           </div>
         </label>
 
+        {duplicate && (
+          <p className="notice duplicate">
+            <History size={15} aria-hidden />
+            <span>
+              Already in your list: <strong>{duplicate.fileName}</strong> ({duplicate.status === "completed" ? `downloaded ${formatDate(duplicate.completedAt ?? duplicate.createdAt)}` : duplicate.status}). Adding it again saves a new copy.
+            </span>
+          </p>
+        )}
+
         {looksLikeVideoPage(url) && (
           <p className="notice">
             This looks like a video page.{" "}
@@ -219,6 +263,7 @@ function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDow
               aria-labelledby="dest-label"
               value={destinationDir}
               onChange={(e) => setDestinationDir(e.target.value)}
+              placeholder="Automatic (by file type, e.g. Downloads\Videos)"
               spellCheck={false}
             />
             <button type="button" className="button" onClick={browse}>
@@ -228,8 +273,40 @@ function AddDownloadForm({ defaultDir, onClose, onAdd, onSwitchToMedia }: AddDow
           </div>
         </div>
 
+        <div className="field-pair">
+          <label className="field grow">
+            <span className="field-label">Queue</span>
+            <select value={queueId} onChange={(e) => setQueueId(e.target.value)}>
+              {queues.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.name}
+                  {q.schedule.enabled ? " (scheduled)" : q.running ? "" : " (stopped)"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field grow">
+            <span className="field-label">Priority</span>
+            <select value={priority} onChange={(e) => setPriority(Number(e.target.value) as Priority)}>
+              <option value={1}>High</option>
+              <option value={0}>Normal</option>
+              <option value={-1}>Low</option>
+            </select>
+          </label>
+        </div>
+
         <details className="advanced">
           <summary>Advanced</summary>
+          <label className="field">
+            <span className="field-label">Speed limit for this download (KB/s, optional)</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="No limit"
+              value={speedLimit}
+              onChange={(e) => setSpeedLimit(e.target.value.replace(/\D/g, ""))}
+            />
+          </label>
           <label className="field">
             <span className="field-label">SHA-256 checksum (optional)</span>
             <input

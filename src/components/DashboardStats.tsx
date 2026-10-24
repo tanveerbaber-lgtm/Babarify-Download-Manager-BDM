@@ -1,10 +1,10 @@
-import type { ListView } from "../lib/views";
+import type { StatusView } from "../lib/views";
 
 interface DashboardStatsProps {
-  counts: Record<ListView, number>;
+  counts: Record<StatusView, number>;
 }
 
-const TILES: { view: ListView; label: string }[] = [
+const TILES: { view: StatusView; label: string }[] = [
   { view: "all", label: "Total" },
   { view: "active", label: "Active" },
   { view: "pending", label: "Pending" },

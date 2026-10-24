@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-24 — "Download With BDM" panel done: working in your own Chrome, restyled to a compact premium look (slim gradient-edged pill, dark glass menu, format tags and 4K/2K/HD badges). M4 left: media-detection prompt and behaviour after a browser update.
+**Last updated:** 2026-10-24 — M5 built and verified in the app: queues, schedules, speed limits, batch import, categories, duplicate warnings, retries, notifications and completion actions. One check left: notifications on your desktop.
 
 ## Progress
 
@@ -14,10 +14,10 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M2 — Core Download Engine | 10 | 0 | 10 | ✅ Complete |
 | M3 — Video and Audio Engine | 11 | 0 | 11 | ✅ Complete |
 | M4 — Chrome and Edge Integration | 9 | 2 | 11 | In progress (2 manual checks left) |
-| M5 — Advanced Download Management | 0 | 0 | 10 | Not started |
+| M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 0 | 0 | 11 | Not started |
 | M7 — Windows Installer and Release | 0 | 0 | 10 | Not started |
-| **Total** | **39** | **2** | **72** | |
+| **Total** | **48** | **3** | **72** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -89,16 +89,45 @@ Connect the browser to the Windows application.
 
 ## M5 — Advanced Download Management
 Add the convenience features expected from a mature IDM alternative.
-- [ ] Implement download queues and priorities.
-- [ ] Implement scheduling and automatic queue processing.
-- [ ] Add bandwidth limits and per-download speed controls.
-- [ ] Implement batch URL import and bulk actions.
-- [ ] Add categories and automatic destination folder rules.
-- [ ] Resolve filename conflicts safely.
-- [ ] Add duplicate detection and download history.
-- [ ] Add desktop notifications and completion actions.
-- [ ] Add retry policies and configurable concurrency limits.
-- [ ] Test queue recovery, scheduling and simultaneous downloads.
+- [x] Implement download queues and priorities.
+  - [x] Queues table, Main queue, priority (low/normal/high) and position per download
+  - [x] Engine starts queued downloads by priority, then position, from running queues only
+  - [x] Queue list in the sidebar (start/stop, counts), queue view in start order, new/edit/delete queue
+  - [x] Right-click menu: priority, move to queue, move to front/back; priority arrows in the list
+- [x] Implement scheduling and automatic queue processing.
+  - [x] Per-queue schedule: start time, optional stop time, days of week, overnight windows
+  - [x] Ticker starts/stops queues; stopping requeues running downloads with progress kept
+  - [x] Launching inside a window starts the queue; a scheduled queue stops once empty
+  - [x] Schedule editor; new scheduled queues wait for their window (verified in the app)
+- [x] Add bandwidth limits and per-download speed controls.
+  - [x] Token-bucket limiter: global limit plus each download's own limit, applied live
+  - [x] Media downloads pass the tighter limit to yt-dlp (`-r`)
+  - [x] Global limit in Settings, per-download limit in the Add dialog and right-click menu
+  - [x] In the app: 512 KB/s cap held at ~505 KB/s; lifting it mid-download jumped to ~8.9 MB/s
+- [x] Implement batch URL import and bulk actions.
+  - [x] Numbered patterns (`file[01-20].zip`, `[a-z]`), pasted lists and .txt import (Batch dialog, Ctrl+B)
+  - [x] Bulk priority, queue, speed limit, download again, open, show in folder, copy links, clear finished
+- [x] Add categories and automatic destination folder rules.
+  - [x] Default categories (Videos, Music, Documents, Compressed, Programs) by extension
+  - [x] New downloads go to `<download folder>\<Category>` unless a folder is chosen
+  - [x] Category filters in the sidebar, category editor in Settings, older downloads sorted on upgrade
+- [x] Resolve filename conflicts safely.
+  - [x] Finished files never overwrite: a new copy is saved as "name (1).ext" (engine test)
+- [x] Add duplicate detection and download history.
+  - [x] Add dialog warns when a link is already in the list; browser links can be added again or skipped
+  - [x] History stays in the list (Completed view) and is searchable by name, title or link
+- [ ] Add desktop notifications and completion actions. *(in progress)*
+  - [x] Windows notifications for completed and failed downloads (settings to turn each off)
+  - [x] When all downloads are done: sleep, shut down (60 s, cancellable) or close BDM; runs once
+  - [x] "All done" fires exactly once, even when downloads finish together (race found and fixed)
+  - [ ] Confirm the notification looks right on your desktop; sleep/shutdown not triggered in testing
+- [x] Add retry policies and configurable concurrency limits.
+  - [x] Retries per attempt and automatic retries of failed downloads (count and delay) in Settings
+  - [x] Broken links (404, 403, sign-in) and checksum failures are never retried automatically
+- [x] Test queue recovery, scheduling and simultaneous downloads.
+  - [x] Engine tests: priority order, stopped queues, schedule start/stop, launch inside a window,
+        auto-retry, speed limits, "all done", restart recovery, concurrency limit (130 Rust tests)
+  - [x] In the app: scheduled queue waited, ran on start, sorted files into folders, stopped when empty
 
 ## M6 — Security, Reliability and Performance
 Harden the application and validate production-quality behavior.

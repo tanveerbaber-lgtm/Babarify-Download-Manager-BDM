@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-expand-batch-pattern"
+description = "Enables the expand_batch_pattern command without any pre-configured scope."
+commands.allow = ["expand_batch_pattern"]
+
+[[permission]]
+identifier = "deny-expand-batch-pattern"
+description = "Denies the expand_batch_pattern command without any pre-configured scope."
+commands.deny = ["expand_batch_pattern"]

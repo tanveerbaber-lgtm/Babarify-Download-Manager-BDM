@@ -1,8 +1,8 @@
 import { useRef, type KeyboardEvent, type MouseEvent } from "react";
-import { FileArchive, FileAudio, FileImage, FileText, FileVideo, File, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, FileArchive, FileAudio, FileImage, FileText, FileVideo, File, Gauge, type LucideIcon } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatBytes, formatDate, formatEta, formatSpeed, progressPercent } from "../lib/format";
-import type { Download, Progress } from "../lib/types";
+import type { Download, Progress, Queue } from "../lib/types";
 
 const EXTENSION_ICONS: [RegExp, LucideIcon][] = [
   [/\.(zip|rar|7z|tar|gz|bz2|xz|iso)$/i, FileArchive],
@@ -14,6 +14,18 @@ const EXTENSION_ICONS: [RegExp, LucideIcon][] = [
 
 function iconFor(fileName: string): LucideIcon {
   return EXTENSION_ICONS.find(([re]) => re.test(fileName))?.[1] ?? File;
+}
+
+function timeOf(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** The second line under a file name. */
+function subtitleFor(d: Download, live: Progress | undefined, queue: Queue | undefined): string {
+  if (live?.stage) return live.stage;
+  if (d.status === "queued" && queue && !queue.running) return `Waiting for the ${queue.name} queue`;
+  if (d.status === "failed" && d.retryAt) return `${d.errorMessage ?? "Failed"} · Retrying at ${timeOf(d.retryAt)}`;
+  return d.errorMessage ?? (d.status === "completed" ? d.savedPath : null) ?? hostOf(d.url);
 }
 
 function hostOf(url: string): string {
@@ -32,9 +44,11 @@ interface DownloadTableProps {
   onDeleteRequest: () => void;
   /** Double-click or Enter on a row. */
   onActivate: (download: Download) => void;
+  queues: Record<string, Queue>;
+  onContextMenu: (x: number, y: number, download: Download) => void;
 }
 
-export function DownloadTable({ downloads, progress, selected, onSelectionChange, onDeleteRequest, onActivate }: DownloadTableProps) {
+export function DownloadTable({ downloads, progress, selected, onSelectionChange, onDeleteRequest, onActivate, queues, onContextMenu }: DownloadTableProps) {
   const anchor = useRef<number | null>(null);
 
   function handleRowClick(e: MouseEvent, index: number, id: string) {
@@ -101,7 +115,7 @@ export function DownloadTable({ downloads, progress, selected, onSelectionChange
             const total = live?.totalBytes ?? d.totalBytes;
             const pct = d.status === "completed" ? 100 : progressPercent(done, total);
             const isSelected = selected.has(d.id);
-            const subtitle = live?.stage ?? d.errorMessage ?? (d.status === "completed" ? d.savedPath : null) ?? hostOf(d.url);
+            const subtitle = subtitleFor(d, live, queues[d.queueId]);
             return (
               <tr
                 key={d.id}
@@ -110,14 +124,32 @@ export function DownloadTable({ downloads, progress, selected, onSelectionChange
                 className={isSelected ? "selected" : undefined}
                 onClick={(e) => handleRowClick(e, index, d.id)}
                 onDoubleClick={() => onActivate(d)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (!selected.has(d.id)) {
+                    onSelectionChange(new Set([d.id]));
+                    anchor.current = index;
+                  }
+                  onContextMenu(e.clientX, e.clientY, d);
+                }}
                 title={d.errorMessage ?? d.url}
               >
                 <td>
                   <div className="name-cell">
                     <Icon size={18} className="file-icon" aria-hidden />
                     <div className="name-text">
-                      <span className="file-name">{d.fileName}</span>
-                      <span className={live?.stage ? "file-host file-stage" : d.errorMessage ? "file-host file-error" : "file-host"}>{subtitle}</span>
+                      <span className="file-name">
+                        {d.priority === 1 && <ArrowUp size={13} className="priority-high" aria-label="High priority" />}
+                        {d.priority === -1 && <ArrowDown size={13} className="priority-low" aria-label="Low priority" />}
+                        {d.fileName}
+                        {d.speedLimit != null && (
+                          <span className="limit-tag" title="This download has its own speed limit">
+                            <Gauge size={12} aria-hidden />
+                            {formatSpeed(d.speedLimit)}
+                          </span>
+                        )}
+                      </span>
+                      <span className={live?.stage ? "file-host file-stage" : d.errorMessage ? "file-host file-error" : "file-host"} title={subtitle}>{subtitle}</span>
                     </div>
                   </div>
                 </td>

@@ -219,6 +219,10 @@ impl MediaHarness {
                 title: None,
                 media_options: Some(&options),
                 referrer: None,
+                queue_id: "main",
+                priority: 0,
+                category: None,
+                speed_limit: None,
             },
         )
         .unwrap()

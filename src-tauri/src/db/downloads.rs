@@ -9,7 +9,8 @@ use crate::models::{Download, DownloadKind, DownloadStatus, MediaOptions, Segmen
 const COLUMNS: &str = "id, url, file_name, destination_dir, status, total_bytes, \
                        downloaded_bytes, error_message, created_at, updated_at, completed_at, \
                        final_url, saved_path, resumable, expected_sha256, temp_path, etag, last_modified, \
-                       kind, title, media_options, referrer";
+                       kind, title, media_options, referrer, queue_id, priority, position, category, \
+                       speed_limit, auto_retries, retry_at";
 
 /// Fields needed to create a new pending record (already validated).
 pub struct InsertDownload<'a> {
@@ -21,6 +22,10 @@ pub struct InsertDownload<'a> {
     pub title: Option<&'a str>,
     pub media_options: Option<&'a MediaOptions>,
     pub referrer: Option<&'a str>,
+    pub queue_id: &'a str,
+    pub priority: i32,
+    pub category: Option<&'a str>,
+    pub speed_limit: Option<i64>,
 }
 
 /// What the engine learned from the server about the remote file.
@@ -38,8 +43,9 @@ pub fn insert(conn: &Connection, new: &InsertDownload<'_>) -> AppResult<Download
     let media_options = new.media_options.map(serde_json::to_string).transpose()?;
     conn.execute(
         "INSERT INTO downloads (id, url, file_name, destination_dir, status, expected_sha256,
-                                kind, title, media_options, referrer, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?11, ?10, ?10)",
+                                kind, title, media_options, referrer, created_at, updated_at,
+                                queue_id, priority, position, category, speed_limit)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?11, ?10, ?10, ?12, ?13, ?14, ?15, ?16)",
         params![
             id,
             new.url,
@@ -51,10 +57,21 @@ pub fn insert(conn: &Connection, new: &InsertDownload<'_>) -> AppResult<Download
             new.title,
             media_options,
             now,
-            new.referrer
+            new.referrer,
+            new.queue_id,
+            new.priority.clamp(-1, 1),
+            next_position(conn)?,
+            new.category,
+            new.speed_limit.filter(|n| *n > 0)
         ],
     )?;
     require(conn, &id)
+}
+
+/// A position after every existing one (new downloads go to the end of their queue).
+fn next_position(conn: &Connection) -> AppResult<i64> {
+    let max: i64 = conn.query_row("SELECT COALESCE(MAX(position), 0) FROM downloads", [], |r| r.get(0))?;
+    Ok(max.max(now_ms()) + 1)
 }
 
 pub fn get(conn: &Connection, id: &str) -> AppResult<Option<Download>> {
@@ -74,12 +91,95 @@ pub fn list(conn: &Connection) -> AppResult<Vec<Download>> {
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
-/// Ids with the given status, oldest first (queue order).
-pub fn ids_with_status(conn: &Connection, status: DownloadStatus) -> AppResult<Vec<String>> {
-    let mut stmt =
-        conn.prepare("SELECT id FROM downloads WHERE status = ?1 ORDER BY created_at, id")?;
-    let rows = stmt.query_map([status.as_str()], |r| r.get(0))?;
+/// Queued downloads in start order: high priority first, then queue position.
+pub fn queued_in_order(conn: &Connection) -> AppResult<Vec<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, queue_id FROM downloads WHERE status = 'queued'
+         ORDER BY priority DESC, position, created_at, id",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
     Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Failed downloads whose automatic retry is due.
+pub fn due_retries(conn: &Connection, now: i64) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM downloads WHERE status = 'failed' AND retry_at IS NOT NULL AND retry_at <= ?1
+         ORDER BY retry_at, id",
+    )?;
+    let rows = stmt.query_map([now], |r| r.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Schedules (or with `None`, cancels) an automatic retry; counts it as used when scheduled.
+pub fn schedule_retry(conn: &Connection, id: &str, at: Option<i64>) -> AppResult<()> {
+    conn.execute(
+        "UPDATE downloads SET retry_at = ?2, auto_retries = auto_retries + (?2 IS NOT NULL) WHERE id = ?1",
+        params![id, at],
+    )?;
+    Ok(())
+}
+
+/// Forgets automatic-retry state (after a manual resume or a success).
+pub fn clear_retry(conn: &Connection, id: &str) -> AppResult<()> {
+    conn.execute("UPDATE downloads SET retry_at = NULL, auto_retries = 0 WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn set_priority(conn: &Connection, id: &str, priority: i32) -> AppResult<()> {
+    touch(conn, "UPDATE downloads SET priority = ?2, updated_at = ?3 WHERE id = ?1", id, priority.clamp(-1, 1))
+}
+
+pub fn set_queue(conn: &Connection, id: &str, queue_id: &str) -> AppResult<()> {
+    touch(conn, "UPDATE downloads SET queue_id = ?2, updated_at = ?3 WHERE id = ?1", id, queue_id)
+}
+
+/// Per-download speed limit in bytes/s; `None` = no limit of its own.
+pub fn set_speed_limit(conn: &Connection, id: &str, limit: Option<i64>) -> AppResult<()> {
+    touch(conn, "UPDATE downloads SET speed_limit = ?2, updated_at = ?3 WHERE id = ?1", id, limit.filter(|n| *n > 0))
+}
+
+/// Moves a download to the front (`true`) or back of the queue order.
+pub fn move_to_edge(conn: &Connection, id: &str, front: bool) -> AppResult<()> {
+    let sql = if front {
+        "UPDATE downloads SET position = (SELECT MIN(position) - 1 FROM downloads), updated_at = ?2 WHERE id = ?1"
+    } else {
+        "UPDATE downloads SET position = (SELECT MAX(position) + 1 FROM downloads), updated_at = ?2 WHERE id = ?1"
+    };
+    if conn.execute(sql, params![id, now_ms()])? == 0 {
+        return Err(AppError::NotFound("That download no longer exists.".into()));
+    }
+    Ok(())
+}
+
+fn touch(conn: &Connection, sql: &str, id: &str, value: impl rusqlite::ToSql) -> AppResult<()> {
+    if conn.execute(sql, params![id, value, now_ms()])? == 0 {
+        return Err(AppError::NotFound("That download no longer exists.".into()));
+    }
+    Ok(())
+}
+
+/// The most recent download of the same URL, if any (for duplicate detection).
+pub fn find_by_url(conn: &Connection, url: &str) -> AppResult<Option<Download>> {
+    let sql = format!("SELECT {COLUMNS} FROM downloads WHERE url = ?1 ORDER BY created_at DESC, position DESC LIMIT 1");
+    Ok(conn.query_row(&sql, [url], from_row).optional()?)
+}
+
+/// Removes finished records (completed and cancelled); files on disk are kept.
+pub fn clear_finished(conn: &Connection) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare("DELETE FROM downloads WHERE status IN ('completed', 'cancelled') RETURNING id")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// How many downloads are still waiting, running or due an automatic retry.
+pub fn unfinished_count(conn: &Connection) -> AppResult<i64> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM downloads WHERE status IN ('queued', 'downloading')
+            OR (status = 'failed' AND retry_at IS NOT NULL)",
+        [],
+        |r| r.get(0),
+    )?)
 }
 
 pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
@@ -162,6 +262,19 @@ pub fn reset_progress(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Turns a finished, failed or cancelled record back into a fresh pending
+/// one. The old file (if any) stays; the new one gets a " (1)" name.
+pub fn prepare_redownload(conn: &Connection, id: &str) -> AppResult<()> {
+    reset_progress(conn, id)?;
+    conn.execute(
+        "UPDATE downloads SET status = 'pending', saved_path = NULL, completed_at = NULL, error_message = NULL,
+                              final_url = NULL, resumable = 0, retry_at = NULL, auto_retries = 0, updated_at = ?2
+         WHERE id = ?1",
+        params![id, now_ms()],
+    )?;
+    Ok(())
+}
+
 pub fn segments(conn: &Connection, id: &str) -> AppResult<Vec<Segment>> {
     let mut stmt = conn.prepare(
         "SELECT idx, start_byte, end_byte, downloaded FROM download_segments
@@ -225,7 +338,7 @@ pub fn mark_completed(conn: &Connection, id: &str, saved_path: &str, size: u64) 
     tx.execute(
         "UPDATE downloads SET status = 'completed', saved_path = ?2, temp_path = NULL,
                               total_bytes = ?3, downloaded_bytes = ?3, error_message = NULL,
-                              completed_at = ?4, updated_at = ?4
+                              completed_at = ?4, updated_at = ?4, retry_at = NULL, auto_retries = 0
          WHERE id = ?1",
         params![id, saved_path, size as i64, now],
     )?;
@@ -282,6 +395,13 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Download> {
             .get::<_, Option<String>>(20)?
             .and_then(|json| serde_json::from_str(&json).ok()),
         referrer: row.get(21)?,
+        queue_id: row.get(22)?,
+        priority: row.get(23)?,
+        position: row.get(24)?,
+        category: row.get(25)?,
+        speed_limit: row.get(26)?,
+        auto_retries: row.get(27)?,
+        retry_at: row.get(28)?,
     })
 }
 
@@ -300,6 +420,10 @@ mod tests {
             title: None,
             media_options: None,
             referrer: None,
+            queue_id: "main",
+            priority: 0,
+            category: None,
+            speed_limit: None,
         }
     }
 
@@ -373,6 +497,45 @@ mod tests {
         assert_eq!(d.kind, DownloadKind::Media);
         assert_eq!(d.title.as_deref(), Some("Big Buck Bunny"));
         assert_eq!(d.media_options, Some(opts));
+    }
+
+    #[test]
+    fn queue_order_is_priority_then_position() {
+        let conn = open_in_memory().unwrap();
+        let a = insert(&conn, &sample()).unwrap();
+        let b = insert(&conn, &InsertDownload { priority: 1, ..sample() }).unwrap();
+        let c = insert(&conn, &InsertDownload { priority: -1, ..sample() }).unwrap();
+        let d = insert(&conn, &sample()).unwrap();
+        assert!(d.position > a.position);
+        for x in [&a, &b, &c, &d] {
+            set_status(&conn, &x.id, DownloadStatus::Queued, None).unwrap();
+        }
+        let order = |conn: &Connection| queued_in_order(conn).unwrap().into_iter().map(|(id, _)| id).collect::<Vec<_>>();
+        assert_eq!(order(&conn), [b.id.clone(), a.id.clone(), d.id.clone(), c.id.clone()]);
+        move_to_edge(&conn, &d.id, true).unwrap();
+        assert_eq!(order(&conn), [b.id.clone(), d.id.clone(), a.id.clone(), c.id.clone()]);
+        set_priority(&conn, &c.id, 5).unwrap();
+        assert_eq!(require(&conn, &c.id).unwrap().priority, 1);
+    }
+
+    #[test]
+    fn retries_duplicates_and_clearing() {
+        let conn = open_in_memory().unwrap();
+        let a = insert(&conn, &sample()).unwrap();
+        set_status(&conn, &a.id, DownloadStatus::Failed, Some("x")).unwrap();
+        schedule_retry(&conn, &a.id, Some(1000)).unwrap();
+        assert_eq!(due_retries(&conn, 999).unwrap().len(), 0);
+        assert_eq!(due_retries(&conn, 1000).unwrap(), std::slice::from_ref(&a.id));
+        assert_eq!(require(&conn, &a.id).unwrap().auto_retries, 1);
+        assert_eq!(unfinished_count(&conn).unwrap(), 1);
+        clear_retry(&conn, &a.id).unwrap();
+        assert_eq!(require(&conn, &a.id).unwrap().auto_retries, 0);
+
+        assert_eq!(find_by_url(&conn, "https://example.com/a.zip").unwrap().unwrap().id, a.id);
+        assert!(find_by_url(&conn, "https://example.com/b.zip").unwrap().is_none());
+        mark_completed(&conn, &a.id, "C:\\Downloads\\a.zip", 1).unwrap();
+        assert_eq!(clear_finished(&conn).unwrap(), std::slice::from_ref(&a.id));
+        assert!(get(&conn, &a.id).unwrap().is_none());
     }
 
     #[test]

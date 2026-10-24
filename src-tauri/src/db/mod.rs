@@ -4,7 +4,9 @@
 //! runs inside its own transaction together with the version bump, so a
 //! failed migration leaves the database at the previous version.
 
+pub mod categories;
 pub mod downloads;
+pub mod queues;
 pub mod settings;
 
 use std::path::Path;
@@ -39,6 +41,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0002_engine.sql"),
     include_str!("migrations/0003_media.sql"),
     include_str!("migrations/0004_browser.sql"),
+    include_str!("migrations/0005_queues.sql"),
 ];
 
 /// Latest schema version this build understands.

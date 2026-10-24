@@ -233,3 +233,35 @@ Improvement made while testing: formats are requested as soon as the pointer rea
 **Your own Chrome:** panel switched on, site-access prompt accepted, bar shown above a YouTube video and the full format list loaded (1080p → 144p with sizes, MP3/M4A). ✅
 
 **Restyle (your feedback: smaller, more premium):** bar 30 → 26 px as a frosted navy pill with a blue → green edge; menu 330 → 248 px, dark glass, 25 px rows with MP4/MP3/M4A tags, 4K/2K/HD badges, frame rate, right-aligned sizes, Video/Audio groups and a thin scrollbar. Checked on YouTube in Chrome: the full list and license fit without scrolling.
+
+## M5 — Advanced Download Management
+
+### Automated tests — 2026-10-24
+- 130 Rust tests pass (`cargo test`), Clippy clean with `-D warnings`, 9 extension tests, `tsc --noEmit` clean.
+- New engine tests: start order by priority then position; a stopped queue starts nothing; stopping a queue
+  requeues running downloads with progress kept; a schedule window starts and stops a queue; launching inside
+  a window starts it and it stops once empty; failed downloads retry automatically, then give up (404s never
+  retry); a 400 KB/s per-download limit is respected and lifting it applies at once; "all done" fires once.
+- Unit tests: schedule windows (overnight, day filter, missed windows), token-bucket limiter, batch patterns and
+  URL extraction, queue/category repositories, category backfill.
+
+### In the app (release build, driven over WebView2 DevTools) — 2026-10-24
+- Upgrade: database moved to schema v5; Main queue and five categories present; your existing downloads were
+  sorted into Videos/Music.
+- Scheduled queue "Night Test" (03:00–04:00) was created stopped; three batch-added links stayed queued, were
+  saved under `Downloads\Compressed`, `Downloads\Documents` and `Downloads` (no category), completed after
+  Start Queue, and the queue stopped itself when empty.
+- Speed limit: 512 KB/s measured at ~505 KB/s; removing it mid-download gave ~8.9 MB/s.
+- Right-click menu, Priority and Move to Queue submenus, queue header (schedule pill, Start Queue, Schedule…),
+  schedule editor, Batch dialog (120-link pattern preview), Add dialog duplicate warning and new Settings cards
+  all checked by screenshot. Test downloads, files and queues were removed afterwards.
+
+### Issues found while testing (all fixed)
+- A new scheduled queue started running immediately → it now waits for its window.
+- Downloads from before M5 had no category → they're sorted on startup.
+- Long queue names pushed the queue buttons off-screen → the header wraps.
+- Two downloads finishing together could report "all done" twice (and so sleep/shut down twice) → fixed.
+
+### Not covered
+- How the Windows notification looks on your desktop, and the sleep / shutdown actions (not triggered on
+  this PC during testing).

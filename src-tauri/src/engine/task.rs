@@ -18,6 +18,7 @@ use super::EngineConfig;
 use super::error::{EngineError, EngineResult};
 use super::events::{EventSink, Progress, SpeedMeter, eta_seconds};
 use super::files;
+use super::limiter::Limits;
 use super::http::{self, RemoteFile};
 use crate::db::{Database, downloads};
 use crate::error::AppError;
@@ -36,6 +37,9 @@ pub(super) struct TaskContext {
     pub sink: Arc<dyn EventSink>,
     pub cfg: Arc<EngineConfig>,
     pub segments_per_download: u32,
+    /// Retries within one attempt.
+    pub max_retries: u32,
+    pub limits: Limits,
     pub cancel: CancellationToken,
     pub tools: Arc<ToolManager>,
 }
@@ -221,9 +225,9 @@ async fn segment_worker(
             return Ok(());
         }
         let from = seg.start + before;
-        match fetch_range(&ctx.client, remote, temp, from, seg.end, counter, stop).await {
+        match fetch_range(ctx, remote, temp, from, seg.end, counter, stop).await {
             Ok(()) => failures = 0,
-            Err(e) if e.is_retryable() && failures < ctx.cfg.max_retries => {
+            Err(e) if e.is_retryable() && failures < ctx.max_retries => {
                 if counter.load(Ordering::Acquire) > before {
                     failures = 0;
                 }
@@ -236,7 +240,7 @@ async fn segment_worker(
 }
 
 async fn fetch_range(
-    client: &Client,
+    ctx: &TaskContext,
     remote: &RemoteFile,
     temp: &Path,
     from: u64,
@@ -244,7 +248,7 @@ async fn fetch_range(
     counter: &AtomicU64,
     stop: &CancellationToken,
 ) -> EngineResult<()> {
-    let mut req = remote.get(client).header(RANGE, format!("bytes={from}-{end}"));
+    let mut req = remote.get(&ctx.client).header(RANGE, format!("bytes={from}-{end}"));
     if let Some(validator) = remote.if_range() {
         req = req.header(IF_RANGE, validator);
     }
@@ -265,7 +269,7 @@ async fn fetch_range(
     let mut file = tokio::fs::OpenOptions::new().write(true).open(temp).await?;
     file.seek(SeekFrom::Start(from)).await?;
     let wanted = end - from + 1;
-    let written = copy_body(resp, &mut file, counter, Some(wanted), stop).await?;
+    let written = copy_body(resp, &mut file, counter, Some(wanted), &ctx.limits, stop).await?;
     if written < wanted {
         return Err(EngineError::premature_end());
     }
@@ -328,7 +332,7 @@ async fn single_loop(
                 _ => http::ensure_success(&resp)?,
             }
             let limit = remote.total_bytes.map(|t| t.saturating_sub(from));
-            copy_body(resp, &mut file, counter, limit, &ctx.cancel).await?;
+            copy_body(resp, &mut file, counter, limit, &ctx.limits, &ctx.cancel).await?;
             if let Some(total) = remote.total_bytes
                 && counter.load(Ordering::Acquire) < total
             {
@@ -340,7 +344,7 @@ async fn single_loop(
 
         match result {
             Ok(()) => return Ok(()),
-            Err(e) if e.is_retryable() && failures < ctx.cfg.max_retries => {
+            Err(e) if e.is_retryable() && failures < ctx.max_retries => {
                 let now = counter.load(Ordering::Acquire);
                 if now > from {
                     failures = 0;
@@ -365,12 +369,14 @@ async fn send(req: reqwest::RequestBuilder, stop: &CancellationToken) -> EngineR
 }
 
 /// Streams a response body into `file`, adding written bytes to `counter`.
-/// Stops after `limit` bytes if given. Returns the number of bytes written.
+/// Stops after `limit` bytes if given and keeps under the speed limits.
+/// Returns the number of bytes written.
 async fn copy_body(
     resp: Response,
     file: &mut tokio::fs::File,
     counter: &AtomicU64,
     limit: Option<u64>,
+    speed: &Limits,
     stop: &CancellationToken,
 ) -> EngineResult<u64> {
     let mut stream = resp.bytes_stream();
@@ -405,6 +411,10 @@ async fn copy_body(
             None => chunk.len(),
         };
         buf.extend_from_slice(&chunk[..take]);
+        tokio::select! {
+            _ = stop.cancelled() => return Err(EngineError::Stopped),
+            _ = speed.take(take as u64) => {}
+        }
         if buf.len() >= WRITE_BUFFER || last_flush.elapsed() >= MAX_FLUSH_INTERVAL {
             flush(file, &mut buf, counter, &mut written).await?;
             last_flush = Instant::now();
@@ -443,7 +453,7 @@ where
             r = op() => r,
         };
         match result {
-            Err(e) if e.is_retryable() && failures < ctx.cfg.max_retries => {
+            Err(e) if e.is_retryable() && failures < ctx.max_retries => {
                 failures += 1;
                 backoff(ctx, &ctx.cancel, failures, e.retry_after()).await?;
             }

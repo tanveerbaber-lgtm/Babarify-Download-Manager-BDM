@@ -282,7 +282,7 @@ export function MediaForm({ defaultDir, initialUrl, autoAnalyze, onClose, onAdd 
                 <div className="field">
                   <span className="field-label" id="media-dest-label">Save to</span>
                   <div className="input-row">
-                    <input type="text" aria-labelledby="media-dest-label" value={destinationDir} onChange={(e) => setDestinationDir(e.target.value)} spellCheck={false} />
+                    <input type="text" aria-labelledby="media-dest-label" value={destinationDir} onChange={(e) => setDestinationDir(e.target.value)} placeholder="Automatic (Videos or Music folder)" spellCheck={false} />
                     <button type="button" className="button" onClick={browse}>
                       <FolderOpen size={16} aria-hidden />
                       Browse

@@ -99,7 +99,7 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     std::fs::create_dir_all(&temp_dir)?;
     hide(&temp_dir);
 
-    let argv = args::download_args(
+    let mut argv = args::download_args(
         &tools,
         &options,
         &temp_dir,
@@ -107,6 +107,9 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         download.referrer.as_deref(),
         &download.url,
     );
+    // Limits go before the "--" that ends the options.
+    let at = argv.len() - 2;
+    argv.splice(at..at, args::limit_args(ctx.limits.effective(), ctx.max_retries));
     let mut cmd = process::command(&tools.yt_dlp);
     cmd.args(&argv);
     let mut child = cmd.spawn().map_err(|e| AppError::Io(format!("couldn't start yt-dlp: {e}")))?;

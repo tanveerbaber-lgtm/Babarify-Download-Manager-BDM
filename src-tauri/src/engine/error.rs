@@ -45,6 +45,16 @@ impl EngineError {
         }
     }
 
+    /// Whether trying the whole download again later might help (temporary
+    /// trouble, not a broken link, missing sign-in or corrupt file).
+    pub fn worth_auto_retry(&self) -> bool {
+        match self {
+            Self::Network { .. } | Self::Changed | Self::SizeMismatch { .. } | Self::Media(_) => true,
+            Self::Http { .. } => self.is_retryable(),
+            _ => false,
+        }
+    }
+
     /// Server-requested delay before retrying (from `Retry-After`).
     pub fn retry_after(&self) -> Option<Duration> {
         match self {

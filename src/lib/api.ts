@@ -5,11 +5,16 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AppError,
   AppInfo,
+  BatchRequest,
   BrowserStatus,
+  Category,
   Download,
   MediaInfo,
   NewDownloadRequest,
   NewMediaRequest,
+  Priority,
+  Queue,
+  QueueSchedule,
   ToolKind,
   ToolStatus,
   Settings,
@@ -58,6 +63,31 @@ export const api = {
   getBrowserIntegration: () => call<BrowserStatus[]>("get_browser_integration"),
   registerBrowserIntegration: () => call<BrowserStatus[]>("register_browser_integration"),
   unregisterBrowserIntegration: () => call<BrowserStatus[]>("unregister_browser_integration"),
+
+  addBatch: (request: BatchRequest) => call<Download[]>("add_batch", { request }),
+  expandBatchPattern: (pattern: string) => call<string[]>("expand_batch_pattern", { pattern }),
+  importUrlList: (path: string) => call<string[]>("import_url_list", { path }),
+  findDuplicate: (url: string) => call<Download | null>("find_duplicate", { url }),
+
+  listQueues: () => call<Queue[]>("list_queues"),
+  saveQueue: (name: string, schedule: QueueSchedule, id?: string) => call<Queue>("save_queue", { id, name, schedule }),
+  deleteQueue: (id: string) => call<Download[]>("delete_queue", { id }),
+  startQueue: (id: string) => call<Queue[]>("start_queue", { id }),
+  stopQueue: (id: string) => call<Queue[]>("stop_queue", { id }),
+
+  listCategories: () => call<Category[]>("list_categories"),
+  saveCategory: (name: string, extensions: string[], folder: string | null, id?: string) =>
+    call<Category>("save_category", { id, name, extensions, folder }),
+  deleteCategory: (id: string) => call<void>("delete_category", { id }),
+
+  setPriority: (ids: string[], priority: Priority) => call<Download[]>("set_download_priority", { ids, priority }),
+  moveToQueue: (ids: string[], queueId: string) => call<Download[]>("move_downloads_to_queue", { ids, queueId }),
+  moveInQueue: (ids: string[], front: boolean) => call<Download[]>("move_downloads_in_queue", { ids, front }),
+  setSpeedLimit: (ids: string[], kbps: number | null) => call<Download[]>("set_download_speed_limit", { ids, kbps }),
+  redownload: (ids: string[]) => call<Download[]>("redownload", { ids }),
+  clearFinished: () => call<string[]>("clear_finished"),
+  openDownload: (id: string) => call<void>("open_download", { id }),
+  showInFolder: (id: string) => call<void>("show_in_folder", { id }),
 };
 
 /** Event names emitted by the Rust engine (`src-tauri/src/engine/events.rs`). */
@@ -68,4 +98,5 @@ export const EVENTS = {
   toolProgress: "tools:progress",
   browserAdded: "browser:added",
   browserMedia: "browser:media",
+  queuesChanged: "queues:changed",
 } as const;

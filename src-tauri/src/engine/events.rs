@@ -41,6 +41,14 @@ pub trait EventSink: Send + Sync + 'static {
     fn updated(&self, download: &Download);
     fn removed(&self, id: &str);
     fn tool_progress(&self, _progress: &ToolProgress) {}
+    /// A download finished successfully.
+    fn completed(&self, _download: &Download) {}
+    /// A download failed and no automatic retry is planned.
+    fn failed(&self, _download: &Download) {}
+    /// Every download has finished (nothing queued, running or waiting to retry).
+    fn all_done(&self) {}
+    /// A queue was started or stopped by its schedule.
+    fn queues_changed(&self) {}
 }
 
 /// Sliding-window throughput meter.

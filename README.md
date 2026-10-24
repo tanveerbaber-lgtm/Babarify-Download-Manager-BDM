@@ -2,7 +2,7 @@
 
 A fast, reliable download manager for Windows, built with **Tauri 2**, **React**, **TypeScript** and **Rust**.
 
-> **Status:** Milestones 1–3 complete; M4 (Chrome and Edge integration) verified in real browsers with two manual checks left. Next: advanced download management (M5).
+> **Status:** Milestones 1–3 complete; M4 (Chrome and Edge integration) and M5 (queues, schedules, speed limits, batch import, categories, notifications) built and verified, with a few manual checks left. Next: security, reliability and performance (M6).
 >
 > *Faster Downloads. More Possibilities.* See [MILESTONES.md](MILESTONES.md).
 
