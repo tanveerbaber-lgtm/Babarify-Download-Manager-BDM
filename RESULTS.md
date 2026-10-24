@@ -230,4 +230,6 @@ Applied from `assets/Babarify Download Manager Brand Guide.png`:
 
 Improvement made while testing: formats are requested as soon as the pointer reaches the bar, so the list appears sooner.
 
-**Left for you:** turn the panel on in your own Chrome (extension Options → "Show 'Download With BDM' on videos") and accept the site-access prompt.
+**Your own Chrome:** panel switched on, site-access prompt accepted, bar shown above a YouTube video and the full format list loaded (1080p → 144p with sizes, MP3/M4A). ✅
+
+**Restyle (your feedback: smaller, more premium):** bar 30 → 26 px as a frosted navy pill with a blue → green edge; menu 330 → 248 px, dark glass, 25 px rows with MP4/MP3/M4A tags, 4K/2K/HD badges, frame rate, right-aligned sizes, Video/Audio groups and a thin scrollbar. Checked on YouTube in Chrome: the full list and license fit without scrolling.
