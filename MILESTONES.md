@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-24 — M4 verified end to end in real Chrome 155 and Edge 156 (capture, fallback, send page/link, BDM auto-start, uninstall) and the branding pack applied. Two manual checks remain: media-detection permission prompt and behaviour after a browser update. 99 Rust + 8 extension tests pass.
+**Last updated:** 2026-10-24 — M4 confirmed in your own Chrome: the popup connects and "Download video or audio from this page" opens BDM's video dialog (release build). Two manual checks remain: media-detection permission prompt and behaviour after a browser update.
 
 ## Progress
 

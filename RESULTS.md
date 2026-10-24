@@ -189,6 +189,15 @@ Registry: `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.babarify.bdm` an
 3. **Badge update on a closed tab** threw an unhandled rejection in the service worker. Fixed.
 4. Test-server fix: responses now send `Content-Type: application/octet-stream`, so browsers download rather than display them.
 
+### Your own Chrome — 2026-10-24
+
+| Check | Result |
+| --- | --- |
+| Popup in your everyday Chrome profile after **Connect** | ❌ at first ("Specified native messaging host not found"); ✅ after restarting Chrome: "BDM will start when needed" |
+| "Download video or audio from this page" with BDM closed | ❌ with the development build (blank page: it needs the dev server); ✅ with the release build: BDM started and opened the Video / audio dialog for the page |
+
+Fixes from this: the popup now shows the browser's exact error and says to restart the browser after connecting; the README and Browser integration page explain using the release build when the browser starts BDM.
+
 ### Not covered automatically
 
 - Media detection on live pages: the optional `webRequest` and host permission prompt has to be accepted by a person.
