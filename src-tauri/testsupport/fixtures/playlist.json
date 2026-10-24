@@ -1,0 +1,41 @@
+{
+ "_type": "playlist",
+ "id": "PLtest",
+ "title": "Blender Open Movies",
+ "uploader": "Blender",
+ "extractor_key": "YoutubeTab",
+ "webpage_url": "https://www.youtube.com/playlist?list=PLtest",
+ "entries": [
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "aqz-KE-bpKQ",
+   "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+   "title": "Big Buck Bunny",
+   "duration": 635
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "eRsGyueVLvQ",
+   "url": "https://www.youtube.com/watch?v=eRsGyueVLvQ",
+   "title": "Sintel",
+   "duration": 888
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "R6MlUcmOul8",
+   "url": "https://www.youtube.com/watch?v=R6MlUcmOul8",
+   "title": "Tears of Steel",
+   "duration": 734
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "bad",
+   "url": "not-a-url",
+   "title": "Broken entry"
+  }
+ ]
+}

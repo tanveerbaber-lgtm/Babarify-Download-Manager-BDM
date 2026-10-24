@@ -1,0 +1,63 @@
+[package]
+name = "bdm"
+version = "0.1.0"
+description = "Babarify Download Manager — a fast, reliable download manager for Windows"
+authors = ["Babarify"]
+license = "Proprietary"
+rust-version = "1.88"
+edition = "2024"
+default-run = "bdm"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "bdm_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+thiserror = "2.0.21"
+url = "2.5.8"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+uuid = { version = "1.29.0", features = ["v4"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "stream", "http2", "charset", "system-proxy"] }
+tokio = { version = "1.54.1", features = ["fs", "io-util", "sync", "time", "macros", "rt-multi-thread", "process", "net"] }
+tokio-util = "0.7.20"
+futures-util = "0.3.34"
+sha2 = "0.11.0"
+hex = "0.4.3"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+tauri-plugin-single-instance = "2"
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+[dev-dependencies]
+axum = "0.8.9"
+tempfile = "3.27.0"
+
+[target."cfg(windows)".dependencies]
+winreg = "0.56.0"
+
+# Keep dev builds small: line tables are enough for backtraces, and
+# dependencies don't need debug info at all.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

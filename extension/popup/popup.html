@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Babarify Download Manager</title>
+    <link rel="stylesheet" href="../src/brand.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="brand-bar">
+      <img src="../icons/icon-32.png" width="28" height="28" alt="" />
+      <div>
+        <div class="brand-name">Babarify</div>
+        <div class="brand-sub">Download Manager</div>
+      </div>
+    </header>
+
+    <main>
+      <div id="status" class="status-line" role="status">
+        <span class="dot"></span><span id="status-text">Checking BDM…</span>
+      </div>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Capture downloads</strong>
+          <small>Hand matching browser downloads to BDM</small>
+        </span>
+        <input id="capture" type="checkbox" class="switch" />
+      </label>
+
+      <button id="send-page" class="button primary" type="button">Download video or audio from this page</button>
+
+      <section id="media-section" hidden>
+        <h2>Media on this page</h2>
+        <ul id="media-list"></ul>
+      </section>
+
+      <p id="error" class="error" hidden></p>
+    </main>
+
+    <footer>
+      <a href="#" id="options">Options</a>
+      <span class="tagline">Faster Downloads. More Possibilities.</span>
+    </footer>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

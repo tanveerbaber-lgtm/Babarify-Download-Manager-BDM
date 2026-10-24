@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Least-privilege capability for the main window: core window/event APIs, a folder picker, and BDM's own commands. Network access happens only in the Rust engine. No filesystem, shell, HTTP or opener access is granted to the webview.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "allow-get-app-info",
+    "allow-list-downloads",
+    "allow-add-download",
+    "allow-resume-download",
+    "allow-pause-download",
+    "allow-cancel-download",
+    "allow-remove-download",
+    "allow-suggest-file-name",
+    "allow-get-settings",
+    "allow-update-settings",
+    "allow-get-media-tools",
+    "allow-install-media-tools",
+    "allow-check-media-tool-updates",
+    "allow-analyze-media",
+    "allow-add-media-downloads",
+    "allow-get-browser-integration",
+    "allow-register-browser-integration",
+    "allow-unregister-browser-integration"
+  ]
+}

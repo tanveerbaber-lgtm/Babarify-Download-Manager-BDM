@@ -1,0 +1,94 @@
+/* Design tokens from the Babarify brand guide (assets/Babarify Download Manager
+   Brand Guide.png). Light is the default; `[data-theme="dark"]` is set on <html>
+   by useSettings (and by public/theme-boot.js before React loads). */
+
+:root {
+  /* Brand palette */
+  --brand-blue: #2563eb;
+  --brand-green: #10b981;
+  --brand-navy: #0f172a;
+  --brand-gray: #64748b;
+  --brand-light-gray: #e2e8f0;
+
+  --font-sans: "Montserrat Variable", "Montserrat", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --brand: var(--brand-blue);
+  --brand-strong: #1d4ed8;
+  --brand-soft: rgba(37, 99, 235, 0.12);
+  --brand-gradient: linear-gradient(90deg, var(--brand-blue), var(--brand-green));
+
+  /* The sidebar is navy in both themes, as in the brand guide. */
+  --sidebar: var(--brand-navy);
+  --sidebar-text: #cbd5e1;
+  --sidebar-text-strong: #ffffff;
+  --sidebar-muted: #7d8aa3;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(37, 99, 235, 0.28);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --border: var(--brand-light-gray);
+  --border-strong: #cbd5e1;
+  --text: var(--brand-navy);
+  --text-2: #334155;
+  --text-3: var(--brand-gray);
+  --hover: rgba(15, 23, 42, 0.04);
+  --selected: rgba(37, 99, 235, 0.09);
+  --focus: 0 0 0 3px rgba(37, 99, 235, 0.32);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.22);
+
+  --success: #059669;
+  --success-soft: #d1fae5;
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --info: var(--brand-blue);
+  --info-soft: #dbeafe;
+  --neutral-soft: #eef2f7;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --brand: #3b82f6;
+  --brand-strong: #60a5fa;
+  --brand-soft: rgba(59, 130, 246, 0.16);
+
+  --sidebar: #0a1020;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+
+  --bg: #0f172a;
+  --surface: #131c31;
+  --surface-2: #17213a;
+  --border: #243049;
+  --border-strong: #33415e;
+  --text: #e2e8f0;
+  --text-2: #b4c0d3;
+  --text-3: #8391a8;
+  --hover: rgba(255, 255, 255, 0.04);
+  --selected: rgba(59, 130, 246, 0.16);
+  --focus: 0 0 0 3px rgba(59, 130, 246, 0.42);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.55);
+
+  --success: #34d399;
+  --success-soft: rgba(16, 185, 129, 0.15);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --info: #60a5fa;
+  --info-soft: rgba(59, 130, 246, 0.16);
+  --neutral-soft: rgba(255, 255, 255, 0.06);
+
+  color-scheme: dark;
+}

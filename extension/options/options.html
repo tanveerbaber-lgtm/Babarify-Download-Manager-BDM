@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BDM extension options</title>
+    <link rel="stylesheet" href="../src/brand.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <header class="brand-bar">
+      <img src="../icons/icon-48.png" width="36" height="36" alt="" />
+      <div>
+        <div class="brand-name">Babarify</div>
+        <div class="brand-sub">Download Manager · Browser extension</div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Connection</h2>
+        <p id="connection">Checking…</p>
+        <button id="test" class="button" type="button">Test connection</button>
+      </section>
+
+      <section>
+        <h2>Download capture</h2>
+        <label class="row">
+          <span><strong>Hand matching downloads to BDM</strong><small>If BDM can't take a download, the browser downloads it as usual.</small></span>
+          <input id="capture" type="checkbox" class="switch" />
+        </label>
+        <label class="field">
+          <span>File types</span>
+          <textarea id="extensions" rows="3" spellcheck="false"></textarea>
+          <small>Extensions separated by commas or spaces, e.g. <code>zip, exe, mp4</code>.</small>
+        </label>
+        <label class="field">
+          <span>Minimum size (MB)</span>
+          <input id="min-size" type="number" min="0" step="1" />
+          <small>Smaller files stay in the browser. 0 captures any size.</small>
+        </label>
+        <label class="field">
+          <span>Never capture from these sites</span>
+          <textarea id="excluded" rows="3" spellcheck="false" placeholder="example.com"></textarea>
+          <small>One per line; subdomains are included. Useful for sites that need you to be signed in, because BDM never receives your browser cookies.</small>
+        </label>
+      </section>
+
+      <section>
+        <h2>Media detection</h2>
+        <label class="row">
+          <span>
+            <strong>Find video and audio on pages</strong>
+            <small>Lists media streams in the popup. Needs permission to see which files pages load; nothing is sent anywhere until you choose a file.</small>
+          </span>
+          <input id="detect" type="checkbox" class="switch" />
+        </label>
+      </section>
+
+      <div class="actions">
+        <span id="saved" class="saved" hidden>Saved</span>
+        <button id="defaults" class="button" type="button">Restore defaults</button>
+        <button id="save" class="button primary" type="button">Save</button>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

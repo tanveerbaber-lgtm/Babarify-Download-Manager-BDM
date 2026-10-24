@@ -1,0 +1,85 @@
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+section {
+  padding: 16px 18px;
+  border: 1px solid var(--light-gray);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+}
+
+small {
+  display: block;
+  color: var(--gray);
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.field small {
+  font-weight: 400;
+}
+
+textarea,
+input[type="number"] {
+  font: inherit;
+  font-weight: 400;
+  padding: 7px 9px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+input[type="number"] {
+  width: 100px;
+}
+
+code {
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved {
+  color: var(--green);
+  font-weight: 600;
+}
+
+#connection[data-state="running"] { color: var(--green); }
+#connection[data-state="missing"] { color: var(--danger); }

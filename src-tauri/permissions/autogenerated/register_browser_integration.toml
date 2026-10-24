@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-register-browser-integration"
+description = "Enables the register_browser_integration command without any pre-configured scope."
+commands.allow = ["register_browser_integration"]
+
+[[permission]]
+identifier = "deny-register-browser-integration"
+description = "Denies the register_browser_integration command without any pre-configured scope."
+commands.deny = ["register_browser_integration"]
