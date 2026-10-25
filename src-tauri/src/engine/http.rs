@@ -1,5 +1,6 @@
 //! HTTP client setup and remote-file probing.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::header::{
@@ -10,10 +11,27 @@ use reqwest::{Client, Response, StatusCode, redirect};
 
 use super::EngineConfig;
 use super::error::{EngineError, EngineResult};
+use crate::net_guard::{GuardResolver, NetGuard};
 
 const MAX_REDIRECTS: usize = 10;
 
-pub fn build_client(cfg: &EngineConfig) -> reqwest::Result<Client> {
+/// Why a redirect may not be followed, if it may not.
+pub fn redirect_refusal(previous: &[url::Url], next: &url::Url, guard: &NetGuard) -> Option<Box<dyn std::error::Error + Send + Sync>> {
+    if previous.len() >= MAX_REDIRECTS {
+        return Some("too many redirects".into());
+    }
+    if !matches!(next.scheme(), "http" | "https") {
+        return Some("redirect to an unsupported protocol".into());
+    }
+    // An encrypted download must not quietly continue over plain HTTP.
+    if next.scheme() == "http" && previous.iter().any(|u| u.scheme() == "https") {
+        return Some("the server redirected from HTTPS to unencrypted HTTP".into());
+    }
+    guard.check_literal(next).err().map(|b| Box::new(b) as _)
+}
+
+/// The HTTP client every download uses; `guard` decides which addresses it may reach.
+pub fn build_client(cfg: &EngineConfig, guard: Arc<NetGuard>) -> reqwest::Result<Client> {
     let mut headers = HeaderMap::new();
     // Byte offsets must refer to the file itself, never to a compressed encoding.
     headers.insert(ACCEPT_ENCODING, "identity".parse().expect("static header"));
@@ -23,13 +41,11 @@ pub fn build_client(cfg: &EngineConfig) -> reqwest::Result<Client> {
         .default_headers(headers)
         .connect_timeout(cfg.connect_timeout)
         .read_timeout(cfg.read_timeout)
-        .redirect(redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= MAX_REDIRECTS {
-                attempt.error("too many redirects")
-            } else if !matches!(attempt.url().scheme(), "http" | "https") {
-                attempt.error("redirect to an unsupported protocol")
-            } else {
-                attempt.follow()
+        .dns_resolver(GuardResolver(guard.clone()))
+        .redirect(redirect::Policy::custom(move |attempt| {
+            match redirect_refusal(attempt.previous(), attempt.url(), &guard) {
+                Some(reason) => attempt.error(reason),
+                None => attempt.follow(),
             }
         }))
         .build()
@@ -50,7 +66,8 @@ pub struct RemoteFile {
 impl RemoteFile {
     /// A GET for this file, with the referrer if there is one.
     pub fn get(&self, client: &Client) -> reqwest::RequestBuilder {
-        with_referrer(client.get(&self.final_url), self.referrer.as_deref())
+        let referrer = referrer_for(self.referrer.as_deref(), &self.final_url);
+        with_referrer(client.get(&self.final_url), referrer.as_deref())
     }
 
     /// Validator for `If-Range`: a strong ETag, else Last-Modified.
@@ -65,7 +82,8 @@ impl RemoteFile {
 /// Asks for the first byte only. A `206` reveals range support and the full
 /// size in one round trip; a `200` means ranges are not supported.
 pub async fn probe(client: &Client, url: &str, referrer: Option<&str>) -> EngineResult<RemoteFile> {
-    let resp = with_referrer(client.get(url), referrer)
+    let sent = referrer_for(referrer, url);
+    let resp = with_referrer(client.get(url), sent.as_deref())
         .header(RANGE, "bytes=0-0")
         .send()
         .await
@@ -99,6 +117,24 @@ pub async fn probe(client: &Client, url: &str, referrer: Option<&str>) -> Engine
     };
 
     Ok(RemoteFile { final_url, total_bytes, resumable, etag, last_modified, referrer: referrer.map(str::to_owned) })
+}
+
+/// The `Referer` a browser would send (its default "strict-origin-when-cross-origin"
+/// policy): the full page address only to the same site, just the origin to
+/// other sites, and nothing from an HTTPS page to an HTTP server. Page
+/// addresses can carry tokens that a file host has no business seeing.
+pub fn referrer_for(referrer: Option<&str>, target: &str) -> Option<String> {
+    let page = url::Url::parse(referrer?).ok()?;
+    let target = url::Url::parse(target).ok()?;
+    if page.scheme() == "https" && target.scheme() == "http" {
+        return None;
+    }
+    if page.origin() == target.origin() {
+        let mut full = page;
+        full.set_fragment(None);
+        return Some(full.to_string());
+    }
+    Some(format!("{}/", page.origin().ascii_serialization()))
 }
 
 fn with_referrer(req: reqwest::RequestBuilder, referrer: Option<&str>) -> reqwest::RequestBuilder {

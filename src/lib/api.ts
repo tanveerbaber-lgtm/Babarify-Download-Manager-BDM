@@ -52,6 +52,8 @@ export const api = {
   pauseDownload: (id: string) => call<void>("pause_download", { id }),
   cancelDownload: (id: string) => call<void>("cancel_download", { id }),
   removeDownload: (id: string) => call<void>("remove_download", { id }),
+  /** Resume, pause, cancel or remove many downloads; resolves to the first error, if any. */
+  bulkAction: (action: "resume" | "pause" | "cancel" | "remove", ids: string[]) => call<string | null>("bulk_action", { action, ids }),
   suggestFileName: (url: string) => call<string>("suggest_file_name", { url }),
   getSettings: () => call<Settings>("get_settings"),
   updateSettings: (patch: SettingsPatch) => call<Settings>("update_settings", { patch }),
@@ -88,6 +90,7 @@ export const api = {
   clearFinished: () => call<string[]>("clear_finished"),
   openDownload: (id: string) => call<void>("open_download", { id }),
   showInFolder: (id: string) => call<void>("show_in_folder", { id }),
+  fileSha256: (id: string) => call<string>("file_sha256", { id }),
 };
 
 /** Event names emitted by the Rust engine (`src-tauri/src/engine/events.rs`). */

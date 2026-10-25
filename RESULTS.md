@@ -265,3 +265,37 @@ Improvement made while testing: formats are requested as soon as the pointer rea
 ### Not covered
 - How the Windows notification looks on your desktop, and the sleep / shutdown actions (not triggered on
   this PC during testing).
+
+## M6 — Security, Reliability and Performance
+
+### Automated — 2026-10-25
+- 141 Rust tests, 9 extension tests, Clippy `-D warnings`, `tsc --noEmit`: all pass.
+- `cargo audit`: 0 vulnerabilities in 548 crates; 5 warnings (unmaintained `proc-macro-error`, `zbus_names`,
+  `zvariant*`; unsound `glib`), none of which is in the Windows build (`cargo tree -i … --target x86_64-pc-windows-msvc`).
+- `npm audit`: 0 vulnerabilities.
+- New tests: address classification (private, metadata, NAT64, IPv4-mapped), local-network blocking for literal IPs and
+  `localhost` (nothing reaches the server, no retry), HTTPS→HTTP redirect refused, metadata redirects refused, Referer
+  policy, yt-dlp errors without links, invisible characters in file names, temp-file deletion guard.
+
+### Release build — 2026-10-25
+- Permissions: `plugin:window|set_title` and `plugin:opener|open_url` refused by the ACL; live events still arrive.
+- `http://127.0.0.1:8787/…` refused with "points to this PC or your local network" and no retry; after allowing local
+  downloads the file arrived and Copy SHA-256 matched a reference copy.
+- Crash: BDM killed with `Stop-Process -Force` at 5.0 MB of 20 MB; on restart the download was paused ("Interrupted…"),
+  resumed from 5.0 MB, finished in 6 s, and its SHA-256 matched the server's file.
+- Load: 16 × 100 MB at 8 connections each finished in 6.4 s with exact sizes; memory 38 MB idle → 141 MB peak → ~45 MB
+  after; ~22% CPU of 8 cores; threads/handles back to 19 / ~450 afterwards.
+- 1,000 downloads: added in ~2 s, shown at once, search ~40 ms. Removing them took **64 s** → fixed with a bulk command
+  and batched UI updates → **0.7 s**.
+
+### Issues found and fixed
+- The webview had `core:default` (window, webview, menu, tray, path APIs) → only event listening is granted now.
+- A web page could make BDM fetch from this PC, the LAN or cloud metadata → blocked (setting to allow the LAN).
+- HTTPS downloads could be redirected to plain HTTP → refused.
+- Full page addresses (possibly with tokens) were sent as Referer to other sites → origin only.
+- Right-to-left override characters could disguise an extension → removed.
+- Cleanup trusted the stored temp path → only BDM's own temp files can be deleted.
+- yt-dlp could load plugins from the user's folders → `--no-plugin-dirs`.
+
+### Not covered
+- Windows 10 (no machine available).

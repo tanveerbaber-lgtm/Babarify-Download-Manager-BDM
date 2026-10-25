@@ -278,6 +278,8 @@ pub struct Settings {
     pub notify_on_failure: bool,
     pub when_all_done: WhenDone,
     pub duplicate_action: DuplicateAction,
+    /// Allow links to this PC and the local network (off by default).
+    pub allow_local_network: bool,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -300,6 +302,7 @@ pub struct SettingsPatch {
     pub notify_on_failure: Option<bool>,
     pub when_all_done: Option<WhenDone>,
     pub duplicate_action: Option<DuplicateAction>,
+    pub allow_local_network: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

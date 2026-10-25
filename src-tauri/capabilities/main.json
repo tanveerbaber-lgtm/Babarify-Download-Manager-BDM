@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Least-privilege capability for the main window: core window/event APIs, a folder picker, and BDM's own commands. Network access happens only in the Rust engine. No filesystem, shell, HTTP or opener access is granted to the webview.",
+  "description": "Least-privilege capability for the main window: listening to BDM's own events, a file/folder picker, and BDM's own commands. No window, webview, path, menu, tray, filesystem, shell, HTTP, opener or notification APIs are granted to the webview; files are opened and notifications shown by the Rust side only.",
   "windows": [
     "main"
   ],
   "permissions": [
-    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "dialog:allow-open",
     "allow-get-app-info",
     "allow-list-downloads",
@@ -45,6 +46,8 @@
     "allow-redownload",
     "allow-clear-finished",
     "allow-open-download",
-    "allow-show-in-folder"
+    "allow-show-in-folder",
+    "allow-file-sha256",
+    "allow-bulk-action"
   ]
 }

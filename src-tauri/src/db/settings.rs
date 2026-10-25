@@ -33,6 +33,7 @@ const KEY_NOTIFY_COMPLETE: &str = "notify_on_complete";
 const KEY_NOTIFY_FAILURE: &str = "notify_on_failure";
 const KEY_WHEN_ALL_DONE: &str = "when_all_done";
 const KEY_DUPLICATE_ACTION: &str = "duplicate_action";
+const KEY_ALLOW_LOCAL: &str = "allow_local_network";
 
 pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
 pub const MAX_RETRIES_LIMIT: u32 = 10;
@@ -64,6 +65,7 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         notify_on_failure: read(conn, KEY_NOTIFY_FAILURE)?.unwrap_or(true),
         when_all_done: read(conn, KEY_WHEN_ALL_DONE)?.unwrap_or(WhenDone::Nothing),
         duplicate_action: read(conn, KEY_DUPLICATE_ACTION)?.unwrap_or(DuplicateAction::Add),
+        allow_local_network: read(conn, KEY_ALLOW_LOCAL)?.unwrap_or(false),
     })
 }
 
@@ -152,6 +154,9 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     if let Some(v) = patch.duplicate_action {
         write(&tx, KEY_DUPLICATE_ACTION, &v)?;
     }
+    if let Some(v) = patch.allow_local_network {
+        write(&tx, KEY_ALLOW_LOCAL, &v)?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -213,6 +218,7 @@ mod tests {
             notify_on_failure: Some(false),
             when_all_done: Some(WhenDone::Sleep),
             duplicate_action: Some(DuplicateAction::Skip),
+            allow_local_network: Some(true),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();

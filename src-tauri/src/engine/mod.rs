@@ -33,6 +33,7 @@ use crate::db::{Database, downloads, now_ms, queues, settings};
 use crate::error::{AppError, AppResult};
 use crate::media::tools::ToolManager;
 use crate::models::{Download, DownloadStatus, Settings};
+use crate::net_guard::NetGuard;
 use error::EngineError;
 use events::EventSink;
 use limiter::{Limits, RateLimiter};
@@ -142,6 +143,7 @@ struct Inner {
     sched: Mutex<Scheduler>,
     tools: Arc<ToolManager>,
     global_limit: Arc<RateLimiter>,
+    guard: Arc<NetGuard>,
 }
 
 #[derive(Clone)]
@@ -157,9 +159,10 @@ impl Engine {
         runtime: Handle,
         tools: Arc<ToolManager>,
     ) -> AppResult<Self> {
-        let client = http::build_client(&cfg)
-            .map_err(|e| AppError::Internal(format!("couldn't create HTTP client: {e}")))?;
         let s = settings::load(&*db.lock()?, "")?;
+        let guard = NetGuard::new(s.allow_local_network);
+        let client = http::build_client(&cfg, guard.clone())
+            .map_err(|e| AppError::Internal(format!("couldn't create HTTP client: {e}")))?;
         let engine = Self {
             inner: Arc::new(Inner {
                 db,
@@ -169,6 +172,7 @@ impl Engine {
                 runtime,
                 tools,
                 global_limit: Arc::new(RateLimiter::new(0)),
+                guard,
                 sched: Mutex::new(Scheduler {
                     active: HashMap::new(),
                     max_concurrent: 1,
@@ -206,6 +210,7 @@ impl Engine {
     /// Applies limits and the retry policy from the settings.
     pub fn apply_policy(&self, s: &Settings) -> AppResult<()> {
         self.inner.global_limit.set_rate(u64::from(s.speed_limit_kbps) * 1024);
+        self.inner.guard.set_allow_local(s.allow_local_network);
         {
             let mut sched = self.sched()?;
             sched.retry = RetryPolicy {
@@ -370,6 +375,11 @@ impl Engine {
         Ok(())
     }
 
+    /// Decides which addresses downloads (and yt-dlp) may reach.
+    pub fn net_guard(&self) -> &Arc<NetGuard> {
+        &self.inner.guard
+    }
+
     /// Re-runs selection after a priority or order change.
     pub fn reschedule(&self) -> AppResult<()> {
         self.schedule()
@@ -468,6 +478,7 @@ impl Engine {
                 limits: Limits { global: self.inner.global_limit.clone(), own: active.limit.clone() },
                 cancel: active.token.clone(),
                 tools: self.inner.tools.clone(),
+                guard: self.inner.guard.clone(),
             };
             let reason = active.reason.clone();
             sched.active.insert(id.clone(), active);

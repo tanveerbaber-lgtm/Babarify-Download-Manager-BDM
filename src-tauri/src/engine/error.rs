@@ -31,6 +31,9 @@ pub enum EngineError {
     /// yt-dlp failed; the message is already user-facing.
     #[error("{0}")]
     Media(String),
+    /// The address is off limits (local network or reserved); see `net_guard`.
+    #[error("{0}")]
+    Blocked(String),
     /// Stopped by pause, cancel or remove.
     #[error("stopped")]
     Stopped,
@@ -89,11 +92,21 @@ impl EngineError {
             ),
             Self::App(e) => e.to_string(),
             Self::Media(m) => m.clone(),
+            Self::Blocked(m) => m.clone(),
             Self::Stopped => "Stopped.".into(),
         }
     }
 
     pub fn from_reqwest(err: reqwest::Error) -> Self {
+        if let Some(blocked) = crate::net_guard::find_blocked(&err) {
+            return Self::Blocked(blocked.to_string());
+        }
+        if err.is_redirect()
+            && let Some(reason) = std::error::Error::source(&err).map(|s| s.to_string())
+            && reason.contains("HTTPS to unencrypted")
+        {
+            return Self::Network { message: reason, retryable: false };
+        }
         let retryable = !err.is_redirect()
             && (err.is_timeout() || err.is_connect() || err.is_request() || err.is_body() || err.is_decode());
         let message = if err.is_timeout() {

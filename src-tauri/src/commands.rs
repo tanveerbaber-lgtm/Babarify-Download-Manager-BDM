@@ -114,6 +114,8 @@ pub async fn add_batch(request: BatchRequest, state: State<'_, AppState>) -> App
     let created = {
         let conn = state.db()?;
         let queue_id = queue_or_main(&conn, request.queue_id.as_deref())?;
+        // One transaction: a thousand links are written in one go.
+        let tx = conn.unchecked_transaction()?;
         let mut created = Vec::with_capacity(urls.len());
         for url in &urls {
             let file_name = validation::file_name_from_url(url);
@@ -136,6 +138,7 @@ pub async fn add_batch(request: BatchRequest, state: State<'_, AppState>) -> App
                 },
             )?);
         }
+        tx.commit()?;
         created
     };
     if request.start.unwrap_or(true) {
@@ -209,6 +212,35 @@ pub async fn remove_download(id: String, state: State<'_, AppState>) -> AppResul
     state.engine.remove(validate_id(&id)?)
 }
 
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BulkAction {
+    Resume,
+    Pause,
+    Cancel,
+    Remove,
+}
+
+/// Applies one action to many downloads in a single call. Every id is
+/// attempted; the first error (if any) is returned for the UI to show.
+#[tauri::command]
+pub async fn bulk_action(action: BulkAction, ids: Vec<String>, state: State<'_, AppState>) -> AppResult<Option<String>> {
+    validate_ids(&ids)?;
+    let mut first_error = None;
+    for id in &ids {
+        let result = match action {
+            BulkAction::Resume => state.engine.enqueue(id),
+            BulkAction::Pause => state.engine.pause(id),
+            BulkAction::Cancel => state.engine.cancel(id),
+            BulkAction::Remove => state.engine.remove(id),
+        };
+        if let Err(e) = result {
+            first_error.get_or_insert(e.to_string());
+        }
+    }
+    Ok(first_error)
+}
+
 /// Suggests a filename for a URL so the Add dialog can prefill it.
 #[tauri::command]
 pub async fn suggest_file_name(url: String) -> AppResult<String> {
@@ -270,6 +302,7 @@ pub async fn check_media_tool_updates(state: State<'_, AppState>) -> AppResult<V
 pub async fn analyze_media(url: String, state: State<'_, AppState>) -> AppResult<MediaInfo> {
     let url = validation::validate_url(&url)?;
     let tools = state.tools.require()?;
+    state.engine.net_guard().check_url(&url).await.map_err(|b| AppError::Validation(b.to_string()))?;
     analyze::analyze(&tools, url.as_str()).await
 }
 
@@ -630,6 +663,16 @@ fn saved_file(state: &AppState, id: &str) -> AppResult<PathBuf> {
         Some(p) if d.status == DownloadStatus::Completed && p.is_file() => Ok(p),
         _ => Err(AppError::NotFound("The file isn't there any more. It may have been moved or deleted.".into())),
     }
+}
+
+/// SHA-256 of a finished file, to compare with a checksum the site publishes.
+#[tauri::command]
+pub async fn file_sha256(id: String, state: State<'_, AppState>) -> AppResult<String> {
+    let path = saved_file(&state, &id)?;
+    tokio::task::spawn_blocking(move || crate::engine::files::sha256_file(&path))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .map_err(AppError::from)
 }
 
 /// Opens a finished file with its default app.

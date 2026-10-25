@@ -67,9 +67,19 @@ pub fn sha256_file(path: &Path) -> std::io::Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-/// Removes a file (or a media temp folder), ignoring "not found".
+/// Removes a partial file (or a media temp folder), ignoring "not found".
+/// Only BDM's own temp names are ever deleted, whatever the path says.
 pub fn remove_if_exists(path: &Path) -> std::io::Result<()> {
-    if path.is_dir() {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let is_dir = std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir());
+    let ours = if is_dir { name.starts_with(".bdm-media-") } else { name.ends_with(&format!(".{TEMP_EXTENSION}")) };
+    if !ours {
+        return match std::fs::symlink_metadata(path) {
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            _ => Err(std::io::Error::other(format!("refusing to delete {name}: not a BDM temp file"))),
+        };
+    }
+    if is_dir {
         return std::fs::remove_dir_all(path);
     }
     match std::fs::remove_file(path) {
@@ -81,6 +91,29 @@ pub fn remove_if_exists(path: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_bdm_temp_files_are_ever_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let keep = dir.path().join("report.pdf");
+        std::fs::write(&keep, b"mine").unwrap();
+        assert!(remove_if_exists(&keep).is_err());
+        assert!(keep.exists(), "a normal file must survive a bad temp path");
+        let folder = dir.path().join("Photos");
+        std::fs::create_dir(&folder).unwrap();
+        assert!(remove_if_exists(&folder).is_err());
+        assert!(folder.exists());
+
+        let part = temp_path_for(dir.path(), "a.zip", "0123456789abcdef");
+        std::fs::write(&part, b"x").unwrap();
+        remove_if_exists(&part).unwrap();
+        assert!(!part.exists());
+        let media = dir.path().join(".bdm-media-01234567");
+        std::fs::create_dir(&media).unwrap();
+        remove_if_exists(&media).unwrap();
+        assert!(!media.exists());
+        remove_if_exists(&dir.path().join("gone.bin")).unwrap();
+    }
 
     #[test]
     fn numbered_names_keep_extension() {

@@ -186,6 +186,17 @@ export default function App() {
     }
   }
 
+  async function copyChecksum(d: Download) {
+    try {
+      notify("Calculating SHA-256…");
+      const hash = await api.fileSha256(d.id);
+      await navigator.clipboard.writeText(hash);
+      notify(`SHA-256 copied: ${hash.slice(0, 16)}…`);
+    } catch (err) {
+      setActionError((err as AppError).message);
+    }
+  }
+
   function activate(d: Download) {
     if (d.status === "completed") void openFile(d);
     else if (canResume(d)) void act("resume", [d.id]);
@@ -205,6 +216,7 @@ export default function App() {
       { label: "Open", disabled: !one || one.status !== "completed", onSelect: () => one && openFile(one) },
       { label: "Show in Folder", disabled: !one, onSelect: () => one && showInFolder(one) },
       { label: one ? "Copy Link" : `Copy ${sel.length} Links`, onSelect: () => copyLinks(sel) },
+      { label: "Copy SHA-256 Checksum", disabled: !one || one.status !== "completed", onSelect: () => one && copyChecksum(one) },
       null,
       { label: "Start / Resume", disabled: resumeIds.length === 0, onSelect: () => act("resume", resumeIds) },
       { label: "Pause", disabled: pauseIds.length === 0, onSelect: () => act("pause", pauseIds) },

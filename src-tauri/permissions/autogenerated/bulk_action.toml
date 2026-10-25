@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-bulk-action"
+description = "Enables the bulk_action command without any pre-configured scope."
+commands.allow = ["bulk_action"]
+
+[[permission]]
+identifier = "deny-bulk-action"
+description = "Denies the bulk_action command without any pre-configured scope."
+commands.deny = ["bulk_action"]

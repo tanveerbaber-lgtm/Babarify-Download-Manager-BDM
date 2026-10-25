@@ -203,6 +203,9 @@ impl MediaHarness {
         let sink = Arc::new(Sink::default());
         let (tools, real) = real_tools(&sink, db_dir.path())?;
         let db = Arc::new(Database::new(db::open(&db_dir.path().join("m.sqlite3")).unwrap()));
+        // The test server is on 127.0.0.1, which BDM blocks by default.
+        let allow = crate::models::SettingsPatch { allow_local_network: Some(true), ..Default::default() };
+        crate::db::settings::apply_patch(&mut db.lock().unwrap(), &allow).unwrap();
         let engine = Engine::new(db.clone(), sink.clone(), EngineConfig::default(), tokio::runtime::Handle::current(), tools).unwrap();
         Some(Self { server: TestServer::start().await, db, engine, sink, real, dest: tempfile::tempdir().unwrap(), _db_dir: db_dir })
     }

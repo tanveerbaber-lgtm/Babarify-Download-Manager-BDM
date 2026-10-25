@@ -182,3 +182,19 @@ Brand assets live in `assets/brand/` (SVG mark, app icon) and come from `assets/
 
 ## Roadmap hooks for later milestones
 
+
+## Security model (M6)
+
+- **Webview:** treated as untrusted. It may only listen to BDM's events, open the file/folder picker and call BDM's
+  own commands, each of which validates its input in Rust. No filesystem, shell, HTTP, window, opener or notification
+  APIs; CSP limits scripts and connections to the app; prototypes are frozen; DevTools are off in release builds.
+- **Network guard** (`net_guard.rs`): a DNS resolver plugged into the HTTP client drops addresses on this PC, the LAN
+  (unless "Allow local network downloads" is on), cloud metadata, link-local, multicast and reserved ranges, on every
+  connection including redirects. Literal-IP URLs are checked before requests and on each redirect; links are resolved
+  and checked before yt-dlp runs. Proxy host names configured in Windows or the environment are let through.
+- **Redirects:** at most 10, http/https only, never HTTPS → HTTP.
+- **Referer:** the browser default (strict-origin-when-cross-origin): full page address to the same origin only.
+- **Files:** names cleaned of reserved characters, device names and invisible formatting characters; finished files
+  never overwrite; only `.bdmpart` files and `.bdm-media-*` folders are ever deleted.
+- **Subprocesses:** yt-dlp gets an argument list (no shell), `--ignore-config --no-plugin-dirs`, the URL after `--`.
+- **Secrets:** URLs with credentials are refused; error messages never include URLs; there are no log files.

@@ -40,6 +40,8 @@ const COMMANDS: &[&str] = &[
     "clear_finished",
     "open_download",
     "show_in_folder",
+    "file_sha256",
+    "bulk_action",
 ];
 
 fn main() {

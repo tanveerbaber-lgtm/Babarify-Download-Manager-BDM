@@ -148,6 +148,8 @@ export interface Settings {
   notifyOnFailure: boolean;
   whenAllDone: WhenDone;
   duplicateAction: DuplicateAction;
+  /** Allow links to this PC and the local network. */
+  allowLocalNetwork: boolean;
 }
 
 export type SettingsPatch = Partial<Settings>;

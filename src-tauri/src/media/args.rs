@@ -84,6 +84,8 @@ pub fn download_args(
     let s = |v: &str| v.to_string();
     let mut args = vec![
         s("--ignore-config"),
+        // Plugins from the user's yt-dlp folders could run arbitrary code.
+        s("--no-plugin-dirs"),
         s("--no-playlist"),
         s("--newline"),
         s("--no-color"),
@@ -110,8 +112,8 @@ pub fn download_args(
     if let Some(deno) = &tools.deno {
         args.extend([s("--js-runtimes"), format!("deno:{}", deno.display())]);
     }
-    if let Some(r) = referrer.filter(|r| !r.is_empty()) {
-        args.extend([s("--referer"), s(r)]);
+    if let Some(r) = crate::engine::http::referrer_for(referrer.filter(|r| !r.is_empty()), url) {
+        args.extend([s("--referer"), r]);
     }
     args.extend(format_args(options));
     // "--" ends option parsing, so the URL can never be read as a flag.
@@ -170,6 +172,8 @@ mod tests {
         let tools = ToolPaths { yt_dlp: PathBuf::from("y.exe"), ffmpeg: PathBuf::from("C:\\t\\ffmpeg.exe"), deno: Some(PathBuf::from("C:\\t\\deno.exe")) };
         let args = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://e.com/page"), "https://e.com/v");
         assert!(args.windows(2).any(|w| w == ["--referer", "https://e.com/page"]));
+        let other = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://site.com/watch?session=secret"), "https://cdn.net/v");
+        assert!(other.windows(2).any(|w| w == ["--referer", "https://site.com/"]), "only the origin goes to another site");
         let n = args.len();
         assert_eq!(&args[n - 2..], ["--", "https://e.com/v"]);
         assert_eq!(limit_args(Some(524_288), 3), ["-R", "3", "--fragment-retries", "3", "-r", "524288"]);

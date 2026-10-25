@@ -5,12 +5,8 @@ import type { AppError, BatchRequest, Download, NewDownloadRequest, NewMediaRequ
 
 export type BulkAction = "resume" | "pause" | "cancel" | "remove";
 
-const ACTIONS: Record<BulkAction, (id: string) => Promise<void>> = {
-  resume: api.resumeDownload,
-  pause: api.pauseDownload,
-  cancel: api.cancelDownload,
-  remove: api.removeDownload,
-};
+/** Engine events are applied in batches this often. */
+const FLUSH_MS = 50;
 
 function upsert(list: Download[], d: Download): Download[] {
   const i = list.findIndex((x) => x.id === d.id);
@@ -48,24 +44,55 @@ export function useDownloads() {
     void refresh();
   }, [refresh]);
 
-  // Live updates from the engine.
+  // Live updates from the engine, applied together every FLUSH_MS so a bulk
+  // action on hundreds of downloads re-renders the list once, not per event.
   useEffect(() => {
+    const fresh = () => ({ updated: new Map<string, Download>(), removed: new Set<string>(), progress: new Map<string, Progress>() });
+    let pending = fresh();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const flush = () => {
+      timer = undefined;
+      const { updated, removed, progress: live } = pending;
+      pending = fresh();
+      if (updated.size > 0 || removed.size > 0) {
+        setDownloads((prev) => {
+          let next = removed.size > 0 ? prev.filter((d) => !removed.has(d.id)) : prev;
+          for (const d of updated.values()) if (!removed.has(d.id)) next = upsert(next, d);
+          return next;
+        });
+      }
+      setProgress((prev) => {
+        let next = prev;
+        if (live.size > 0) {
+          next = { ...prev };
+          for (const p of live.values()) next[p.id] = p;
+        }
+        for (const d of updated.values()) if (d.status !== "downloading") next = omit(next, d.id);
+        for (const id of removed) next = omit(next, id);
+        return next;
+      });
+    };
+    const schedule = () => {
+      timer ??= setTimeout(flush, FLUSH_MS);
+    };
+
     const unlisten = [
       listen<Download>(EVENTS.updated, ({ payload }) => {
-        setDownloads((prev) => upsert(prev, payload));
-        if (payload.status !== "downloading") {
-          setProgress((prev) => omit(prev, payload.id));
-        }
+        pending.updated.set(payload.id, payload);
+        schedule();
       }),
       listen<string>(EVENTS.removed, ({ payload }) => {
-        setDownloads((prev) => prev.filter((d) => d.id !== payload));
-        setProgress((prev) => omit(prev, payload));
+        pending.removed.add(payload);
+        schedule();
       }),
       listen<Progress>(EVENTS.progress, ({ payload }) => {
-        setProgress((prev) => ({ ...prev, [payload.id]: payload }));
+        pending.progress.set(payload.id, payload);
+        schedule();
       }),
     ];
     return () => {
+      if (timer) clearTimeout(timer);
       for (const p of unlisten) void p.then((stop) => stop());
     };
   }, []);
@@ -107,18 +134,18 @@ export function useDownloads() {
     setDownloads((prev) => prev.filter((d) => !gone.has(d.id)));
   }, []);
 
-  /** Runs an action on each id; returns the first error message, if any. */
+  /** Runs an action on every id in one call; returns the first error message, if any. */
   const run = useCallback(async (action: BulkAction, ids: string[]) => {
-    let firstError: string | null = null;
-    for (const id of ids) {
-      try {
-        await ACTIONS[action](id);
-        if (action === "remove") setDownloads((prev) => prev.filter((d) => d.id !== id));
-      } catch (err) {
-        firstError ??= (err as AppError).message;
+    try {
+      const firstError = await api.bulkAction(action, ids);
+      if (action === "remove") {
+        const gone = new Set(ids);
+        setDownloads((prev) => prev.filter((d) => !gone.has(d.id)));
       }
+      return firstError;
+    } catch (err) {
+      return (err as AppError).message;
     }
-    return firstError;
   }, []);
 
   return { downloads, progress, loading, error, refresh, add, addMedia, addBatch, merge, forget, run };

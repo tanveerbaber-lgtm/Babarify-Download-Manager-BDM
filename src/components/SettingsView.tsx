@@ -201,6 +201,17 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
       </section>
 
       <section className="card">
+        <h2>Security</h2>
+        <SwitchSetting
+          id="allow-local"
+          title="Allow local network downloads"
+          desc="Let BDM download from this PC (localhost) and your home or office network, e.g. a NAS. Off by default so a web page can't use BDM to reach devices on your network. Cloud metadata addresses are always blocked."
+          checked={settings.allowLocalNetwork}
+          onChange={(v) => save({ allowLocalNetwork: v })}
+        />
+      </section>
+
+      <section className="card">
         <h2>Speed and Retries</h2>
         <NumberSetting
           id="speed-limit"

@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-24 — M5 built and verified in the app: queues, schedules, speed limits, batch import, categories, duplicate warnings, retries, notifications and completion actions. One check left: notifications on your desktop.
+**Last updated:** 2026-10-25 — M6 done except a Windows 10 check: security hardening, crash and load tests, dependency audit (no vulnerabilities), THIRD_PARTY.md and LIMITATIONS.md.
 
 ## Progress
 
@@ -15,9 +15,9 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M3 — Video and Audio Engine | 11 | 0 | 11 | ✅ Complete |
 | M4 — Chrome and Edge Integration | 9 | 2 | 11 | In progress (2 manual checks left) |
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
-| M6 — Security, Reliability and Performance | 0 | 0 | 11 | Not started |
+| M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 0 | 0 | 10 | Not started |
-| **Total** | **48** | **3** | **72** | |
+| **Total** | **58** | **4** | **72** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -131,17 +131,58 @@ Add the convenience features expected from a mature IDM alternative.
 
 ## M6 — Security, Reliability and Performance
 Harden the application and validate production-quality behavior.
-- [ ] Review Tauri capabilities and filesystem permissions.
-- [ ] Validate URLs, redirects, local paths and subprocess arguments.
-- [ ] Protect against unsafe filenames, path traversal and unintended file overwrites.
-- [ ] Prevent unsafe access to local network resources and sensitive endpoints.
-- [ ] Keep credentials and signed URL secrets out of logs.
-- [ ] Verify downloaded file integrity where checksums are available.
-- [ ] Test crashes, application restarts and partial-file recovery.
-- [ ] Test high concurrency, memory usage and CPU utilization.
-- [ ] Review third-party dependency licenses and update mechanisms.
-- [ ] Run regression, security and Windows compatibility tests.
-- [ ] Document known limitations and unsupported websites or protocols.
+- [x] Review Tauri capabilities and filesystem permissions.
+  - [x] Webview gets only event listening, the file/folder picker and BDM's own commands (`core:default` removed)
+  - [x] No filesystem, shell, HTTP, opener or notification APIs in the webview; files are opened by Rust from saved records only
+  - [x] CSP: scripts and connections limited to the app itself; prototypes frozen; DevTools off in release builds
+  - [x] Release build checked: window and opener calls refused by the ACL, live events and all features still work
+- [x] Validate URLs, redirects, local paths and subprocess arguments.
+  - [x] URLs: http/https only, a host, no embedded user name or password, length limit
+  - [x] Redirects: at most 10, http/https only, never from HTTPS down to unencrypted HTTP
+  - [x] Folders must be full paths to existing folders; picked .txt imports are size-limited
+  - [x] yt-dlp: arguments as a list (no shell), URL after `--`, format ids checked, user config and plugins ignored
+- [x] Protect against unsafe filenames, path traversal and unintended file overwrites.
+  - [x] Reserved characters, device names (CON, NUL…), `..` and trailing dots cleaned; length capped
+  - [x] Invisible right-to-left and zero-width characters removed so extensions can't be disguised
+  - [x] Finished files never overwrite ("name (1).ext"); yt-dlp output only accepted from its own temp folder
+  - [x] Cleanup only ever deletes BDM's own `.bdmpart` files and `.bdm-media-*` folders
+- [x] Prevent unsafe access to local network resources and sensitive endpoints.
+  - [x] Every connection checked after DNS (covers redirects and DNS rebinding); literal IPs checked before requests and redirects
+  - [x] This PC and the local network blocked unless "Allow local network downloads" is on (Settings → Security)
+  - [x] Cloud metadata (169.254.169.254, fd00:ec2::254), link-local, multicast and reserved addresses always blocked
+  - [x] Links are checked before yt-dlp runs; configured proxies still work
+- [x] Keep credentials and signed URL secrets out of logs.
+  - [x] Network errors never include the URL; yt-dlp messages have links stripped (tests)
+  - [x] Links with a user name or password are refused, so they never reach the database
+  - [x] Cross-site requests send only the page's origin as Referer, never its full address (browser default policy)
+  - [x] No log files; console messages carry no URLs or tokens
+- [x] Verify downloaded file integrity where checksums are available.
+  - [x] Optional SHA-256 per download: a mismatching file is never saved (engine test)
+  - [x] yt-dlp, FFmpeg and Deno installs are checked against GitHub's SHA-256 digests
+  - [x] Right-click → Copy SHA-256 Checksum for any finished file
+  - [x] Sizes are checked against Content-Length / Content-Range before a file is finished
+- [x] Test crashes, application restarts and partial-file recovery.
+  - [x] Engine tests: restart recovery, pause/resume from saved ranges, queued downloads restart after launch, changed-file restarts
+  - [x] Real app: killed mid-download at 5.0 MB of 20 MB → reopened as paused ("Interrupted…"), resumed and finished; SHA-256 matched the server's file
+  - [x] Partial files keep their exact size on disk, so a crash never leaves a truncated file under the real name
+- [x] Test high concurrency, memory usage and CPU utilization.
+  - [x] 16 downloads × 100 MB × 8 connections at once: all 16 complete with exact sizes in 6.4 s (local server)
+  - [x] BDM memory: 38 MB idle, 141 MB peak under load, back to ~45 MB after; ~22% CPU of 8 cores at full speed
+  - [x] Threads and handles return to idle levels afterwards (19 threads, ~450 handles): no leaks
+  - [x] 1,000 downloads in the list: rows on screen at once, search in ~40 ms, add 1,000 links in ~2 s
+  - [x] Fixed: removing 1,000 downloads took 64 s → 0.7 s (one bulk command, engine events applied in batches)
+- [x] Review third-party dependency licenses and update mechanisms.
+  - [x] 315 Rust crates and 12 npm packages in the app: all permissive (MIT/Apache/BSD/ISC/Zlib…); 5 MPL-2.0 crates from Tauri; Montserrat under OFL
+  - [x] yt-dlp (Unlicense), FFmpeg (GPL build) and Deno (MIT) are downloaded on request, run as separate programs, never bundled
+  - [x] Every tool download checked against GitHub's SHA-256; yt-dlp updates itself on launch; see THIRD_PARTY.md
+  - [x] Bundling FFmpeg in the M7 installer would need the GPL source offer or the LGPL build (noted for M7)
+- [ ] Run regression, security and Windows compatibility tests. *(in progress)*
+  - [x] Regression: 141 Rust tests, 9 extension tests, Clippy (-D warnings) and TypeScript checks pass
+  - [x] Security: `cargo audit` finds no vulnerabilities in 548 crates (5 warnings, all in Linux-only or build-time crates); `npm audit` 0
+  - [x] Release build exercised on Windows 11 (build 26300): permissions, blocking, crash recovery, load
+  - [ ] Windows 10 not tested yet (no Windows 10 machine here)
+- [x] Document known limitations and unsupported websites or protocols.
+  - [x] LIMITATIONS.md: platforms, protocols (HTTP/HTTPS only), sign-in links, DRM and live streams, browsers, schedules, limits
 
 ## M7 — Windows Installer and Release
 Package BDM for installation, maintenance and possible public distribution.

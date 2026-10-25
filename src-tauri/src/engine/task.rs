@@ -42,6 +42,7 @@ pub(super) struct TaskContext {
     pub limits: Limits,
     pub cancel: CancellationToken,
     pub tools: Arc<ToolManager>,
+    pub guard: Arc<crate::net_guard::NetGuard>,
 }
 
 /// Downloads `id` to completion. Returns `Err(Stopped)` when cancelled.
@@ -75,6 +76,10 @@ async fn attempt(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         return Err(AppError::Validation("The destination folder no longer exists.".into()).into());
     }
 
+    // DNS names are checked as they resolve; a literal IP never goes through DNS.
+    if let Ok(url) = url::Url::parse(&download.url) {
+        ctx.guard.check_literal(&url).map_err(|b| EngineError::Blocked(b.to_string()))?;
+    }
     let remote = with_retries(ctx, || http::probe(&ctx.client, &download.url, download.referrer.as_deref())).await?;
 
     let temp_exists = download.temp_path.as_deref().is_some_and(|p| Path::new(p).exists());

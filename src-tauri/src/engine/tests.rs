@@ -83,6 +83,9 @@ impl Harness {
         let server = TestServer::start().await;
         let db_dir = tempfile::tempdir().unwrap();
         let db = Arc::new(Database::new(db::open(&db_dir.path().join("t.sqlite3")).unwrap()));
+        // The test server is on 127.0.0.1, which BDM blocks by default.
+        let allow = crate::models::SettingsPatch { allow_local_network: Some(true), ..Default::default() };
+        crate::db::settings::apply_patch(&mut db.lock().unwrap(), &allow).unwrap();
         let sink = Arc::new(RecordingSink::default());
         let engine = Engine::new(db.clone(), sink.clone(), test_config(), tokio::runtime::Handle::current(), test_tools(&db_dir, &sink)).unwrap();
         engine.set_limits(3, 8).unwrap();
@@ -808,4 +811,58 @@ async fn reports_all_done_once_when_the_list_empties() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(h.sink.all_done.load(std::sync::atomic::Ordering::SeqCst), 1);
     assert_eq!(h.sink.completed.lock().unwrap().len(), 3);
+}
+
+// --------------------------------------------------------- M6: network guard
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn local_network_links_are_blocked_unless_allowed() {
+    let h = Harness::new().await;
+    h.engine.set_auto_retry(2, Duration::ZERO);
+    h.engine.net_guard().set_allow_local(false);
+    h.server.state.add("lan.bin", FileSpec::new(test_data(10_000, 70)));
+
+    // A literal IP and a name that resolves to one are both refused, without retries.
+    for url in [h.server.url("/files/lan.bin"), h.server.url("/files/lan.bin").replace("127.0.0.1", "localhost")] {
+        let id = h.insert(&url, "lan.bin", None);
+        h.engine.enqueue(&id).unwrap();
+        let d = h.wait_done(&id).await;
+        assert_eq!(d.status, DownloadStatus::Failed, "{url}");
+        assert!(d.error_message.as_deref().unwrap_or("").contains("local network"), "{:?}", d.error_message);
+        assert!(d.retry_at.is_none(), "blocked links are not retried");
+    }
+    assert!(h.server.state.requests_for("/files/lan.bin").is_empty(), "nothing reached the server");
+
+    h.engine.net_guard().set_allow_local(true);
+    let id = h.add("/files/lan.bin", "lan.bin");
+    assert_eq!(h.wait_done(&id).await.status, DownloadStatus::Completed);
+}
+
+#[test]
+fn redirects_may_not_downgrade_or_reach_reserved_addresses() {
+    use super::http::redirect_refusal;
+    let guard = crate::net_guard::NetGuard::new(true);
+    let u = |s: &str| url::Url::parse(s).unwrap();
+    assert!(redirect_refusal(&[u("https://a.example/x")], &u("http://b.example/x"), &guard).is_some());
+    assert!(redirect_refusal(&[u("http://a.example/x")], &u("https://b.example/x"), &guard).is_none());
+    assert!(redirect_refusal(&[u("https://a.example/x")], &u("http://169.254.169.254/latest/meta-data"), &guard).is_some());
+    assert!(redirect_refusal(&[u("http://a.example/x")], &u("ftp://b.example/x"), &guard).is_some());
+    guard.set_allow_local(false);
+    assert!(redirect_refusal(&[u("http://a.example/x")], &u("http://192.168.1.1/admin"), &guard).is_some());
+}
+
+#[test]
+fn referrer_follows_the_browser_default_policy() {
+    use super::http::referrer_for;
+    let page = Some("https://site.com/watch?v=1&token=secret#t=10");
+    assert_eq!(referrer_for(page, "https://site.com/file.zip").as_deref(), Some("https://site.com/watch?v=1&token=secret"));
+    assert_eq!(referrer_for(page, "https://cdn.example/file.zip").as_deref(), Some("https://site.com/"));
+    assert_eq!(referrer_for(page, "http://site.com/file.zip"), None, "never from HTTPS to HTTP");
+    assert_eq!(referrer_for(None, "https://site.com/file.zip"), None);
+}
+
+#[test]
+fn yt_dlp_errors_never_show_signed_links() {
+    let msg = crate::media::output::friendly_error(&["ERROR: [generic] Unable to fetch https://cdn.example/v.mp4?sig=abc123&expires=9 because of a server error".to_string()]);
+    assert!(!msg.contains("sig=abc123") && !msg.contains("https://"), "{msg}");
 }

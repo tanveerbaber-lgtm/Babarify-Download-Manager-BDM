@@ -9,6 +9,7 @@ mod engine;
 mod error;
 mod media;
 mod models;
+mod net_guard;
 mod state;
 mod validation;
 
@@ -126,6 +127,11 @@ async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> Brow
                 Ok(t) => t,
                 Err(e) => return BrowserResponse::error(e.to_string()),
             };
+            if let Ok(parsed) = url::Url::parse(&url)
+                && let Err(b) = state.engine.net_guard().check_url(&parsed).await
+            {
+                return BrowserResponse::error(b.to_string());
+            }
             match media::analyze::analyze(&tools, &url).await {
                 Ok(info) => match media::choices::media_choices(&info) {
                     Ok(choices) => BrowserResponse::with_media(choices),
@@ -180,7 +186,8 @@ pub fn run() {
 
             let tools_dir = data_dir.join("tools");
             tools::clean_old_copies(&tools_dir);
-            let tool_client = engine::http::build_client(&config)?;
+            // Tools only ever come from GitHub, so their client never needs the local network.
+            let tool_client = engine::http::build_client(&config, net_guard::NetGuard::new(false))?;
             let tools = Arc::new(ToolManager::new(tools_dir, tool_client, sink.clone()));
 
             let engine = Engine::new(database.clone(), sink, config, runtime.clone(), tools.clone())?;
@@ -254,6 +261,8 @@ pub fn run() {
             commands::clear_finished,
             commands::open_download,
             commands::show_in_folder,
+            commands::file_sha256,
+            commands::bulk_action,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

@@ -83,6 +83,10 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         .ok_or_else(|| AppError::Internal("media download without options".into()))?;
     args::validate(&options)?;
     let tools = ctx.tools.require()?;
+    // yt-dlp makes its own connections, so the address is checked up front.
+    if let Ok(url) = url::Url::parse(&download.url) {
+        ctx.guard.check_url(&url).await.map_err(|b| EngineError::Blocked(b.to_string()))?;
+    }
     let dest_dir = PathBuf::from(&download.destination_dir);
     if !dest_dir.is_dir() {
         return Err(AppError::Validation("The destination folder no longer exists.".into()).into());

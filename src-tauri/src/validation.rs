@@ -67,6 +67,9 @@ pub fn file_name_from_url(url: &Url) -> String {
 pub fn sanitize_file_name(raw: &str) -> String {
     let mut name: String = raw
         .chars()
+        // Invisible formatting characters can disguise an extension
+        // ("photo\u{202E}gpj.exe" displays as "photoexe.jpg"), so they go.
+        .filter(|c| !is_invisible_format(*c))
         .map(|c| match c {
             '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
             c if c.is_control() => '_',
@@ -89,6 +92,11 @@ pub fn sanitize_file_name(raw: &str) -> String {
     }
 
     truncate_preserving_extension(&name, MAX_FILE_NAME_LEN)
+}
+
+/// Bidirectional overrides and isolates, zero-width characters and the BOM.
+fn is_invisible_format(c: char) -> bool {
+    matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2069}' | '\u{FEFF}' | '\u{061C}')
 }
 
 /// Validates a user-chosen filename and returns its sanitized form.
@@ -204,6 +212,13 @@ fn hex(b: u8) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strips_invisible_characters_that_disguise_extensions() {
+        assert_eq!(sanitize_file_name("photo\u{202E}gpj.exe"), "photogpj.exe");
+        assert_eq!(sanitize_file_name("re\u{200B}port\u{FEFF}.pdf"), "report.pdf");
+        assert_eq!(sanitize_file_name("\u{2066}\u{2069}"), "download");
+    }
 
     #[test]
     fn accepts_http_and_https() {

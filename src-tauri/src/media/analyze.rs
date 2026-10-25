@@ -89,7 +89,7 @@ pub struct PlaylistEntry {
 /// Runs yt-dlp in metadata-only mode.
 pub async fn analyze(tools: &ToolPaths, url: &str) -> AppResult<MediaInfo> {
     let mut cmd = process::command(&tools.yt_dlp);
-    cmd.args(["--ignore-config", "--no-warnings", "-J", "--flat-playlist", "--no-playlist"]);
+    cmd.args(["--ignore-config", "--no-plugin-dirs", "--no-warnings", "-J", "--flat-playlist", "--no-playlist"]);
     add_js_runtime(&mut cmd, tools.deno.as_deref());
     cmd.args(["--", url]);
 
