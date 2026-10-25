@@ -1925,3 +1925,191 @@ code {
   flex-shrink: 0;
 }
 
+
+/* ---------- Brandboard refresh (2026-10-25) ---------- */
+
+/* Buttons: pills. Primary is a blue gradient, the default is the soft "secondary" style. */
+.button {
+  border-radius: 999px;
+  padding: 0 16px;
+  border-color: var(--btn-soft-border);
+  background: var(--btn-soft);
+  color: var(--btn-soft-text);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--btn-soft-hover);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.button.primary {
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+}
+
+.button.primary:hover:not(:disabled) {
+  background: linear-gradient(90deg, #1d4ed8, #0284c7);
+}
+
+.button.danger {
+  background: var(--danger);
+  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.22);
+}
+
+.button.small {
+  border-radius: 999px;
+}
+
+/* Toolbar icons sit in soft rounded squares, as in the Brandboard UI icon set. */
+.toolbar .icon-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--icon-soft);
+  color: var(--brand);
+}
+
+.toolbar .icon-button:hover:not(:disabled) {
+  background: var(--icon-soft-hover);
+  color: var(--brand-strong);
+}
+
+/* Status chips */
+.status {
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--neutral-soft);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.status-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: none;
+  color: #fff;
+  background: var(--text-3);
+}
+
+.status-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.status-dot {
+  display: none;
+}
+
+.status-completed { background: var(--success-soft); color: var(--success); }
+.status-completed .status-icon { background: #10b981; }
+.status-downloading { background: var(--info-soft); color: var(--info); }
+.status-downloading .status-icon { background: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22); animation: status-pulse 1.6s ease-in-out infinite; }
+.status-paused { background: var(--warning-soft); color: var(--warning); }
+.status-paused .status-icon { background: #f59e0b; }
+.status-failed { background: var(--danger-soft); color: var(--danger); }
+.status-failed .status-icon { background: #ef4444; }
+.status-pending { background: var(--warning-soft); color: var(--warning); }
+.status-pending .status-icon { background: #f59e0b; }
+.status-queued .status-icon { background: #64748b; }
+.status-cancelled { color: var(--text-3); }
+.status-cancelled .status-icon { background: #94a3b8; }
+
+@keyframes status-pulse {
+  50% { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-downloading .status-icon { animation: none; }
+}
+
+/* Progress: rounded gradient bar on a light track. */
+.progress {
+  height: 8px;
+  background: var(--track);
+}
+
+.progress-completed .progress-bar {
+  background: var(--brand-gradient);
+}
+
+/* Stat cards with colored icon tiles. */
+.stat {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.stat::before {
+  display: none;
+}
+
+.stat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.stat-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  flex: none;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+}
+
+.stat-active .stat-icon { background: linear-gradient(135deg, #0ea5e9, #2563eb); }
+.stat-pending .stat-icon { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 6px 14px rgba(245, 158, 11, 0.25); }
+.stat-completed .stat-icon { background: linear-gradient(135deg, #34d399, #10b981); box-shadow: 0 6px 14px rgba(16, 185, 129, 0.25); }
+
+/* Sidebar: the current page is a solid blue pill, as in the Brandboard dashboard. */
+.nav-item[aria-current="page"] {
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
+}
+
+.nav-item[aria-current="page"] svg {
+  color: #fff;
+}
+
+.queue-item[aria-current="page"] .queue-state {
+  color: #dbeafe;
+}
+
+.logo-img {
+  display: block;
+  flex: none;
+}
+
+.about-copy {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.about-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.about-links .link-button {
+  text-decoration: none;
+}

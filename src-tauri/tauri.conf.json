@@ -2,12 +2,12 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Babarify Download Manager",
   "mainBinaryName": "bdm",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.babarify.bdm",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && node scripts/prepare-sidecar.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -40,18 +40,44 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Babarify",
-    "copyright": "© 2026 Babarify",
+    "copyright": "© 2026 Babarify. All rights reserved.",
     "category": "Utility",
     "shortDescription": "Babarify Download Manager",
-    "longDescription": "A fast, reliable download manager for Windows.",
+    "longDescription": "Faster Downloads. More Possibilities. A fast, reliable download manager for Windows with browser integration, video and audio downloads, queues and schedules.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "externalBin": [
+      "binaries/bdm-native-host"
+    ],
+    "homepage": "https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM",
+    "license": "LicenseRef-Proprietary",
+    "licenseFile": "../LICENSE.txt",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false,
+        "installerHooks": "installer-hooks.nsh",
+        "startMenuFolder": "Babarify Download Manager"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    },
+    "resources": {
+      "../LICENSE.txt": "legal/LICENSE.txt",
+      "../PRIVACY.md": "legal/PRIVACY.md",
+      "../THIRD_PARTY_NOTICES.txt": "legal/THIRD_PARTY_NOTICES.txt"
+    }
   }
 }

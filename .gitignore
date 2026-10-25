@@ -26,3 +26,6 @@ dist-ssr
 # Extension signing key (never commit)
 /keys/
 /dist-extension/
+
+# Sidecar copied in at build time (scripts/prepare-sidecar.mjs)
+src-tauri/binaries/

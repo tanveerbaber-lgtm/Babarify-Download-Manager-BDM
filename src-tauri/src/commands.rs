@@ -826,6 +826,34 @@ pub async fn file_sha256(id: String, state: State<'_, AppState>) -> AppResult<St
         .map_err(AppError::from)
 }
 
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LegalDocument {
+    License,
+    Privacy,
+    Notices,
+}
+
+/// Opens the license, privacy policy or open-source notices shipped with BDM.
+#[tauri::command]
+pub async fn open_legal_document(document: LegalDocument, app: tauri::AppHandle) -> AppResult<()> {
+    use tauri::Manager;
+    let file = match document {
+        LegalDocument::License => "LICENSE.txt",
+        LegalDocument::Privacy => "PRIVACY.md",
+        LegalDocument::Notices => "THIRD_PARTY_NOTICES.txt",
+    };
+    let installed = app.path().resource_dir().ok().map(|d| d.join("legal").join(file));
+    // Development builds read the copies in the project folder.
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(file);
+    let path = installed.filter(|p| p.is_file()).or_else(|| dev.is_file().then_some(dev)).ok_or_else(|| {
+        AppError::NotFound(format!("{file} isn't included in this build."))
+    })?;
+    app.opener()
+        .open_path(path.to_string_lossy(), None::<&str>)
+        .map_err(|e| AppError::Io(format!("couldn't open {file}: {e}")))
+}
+
 /// Opens a finished file with its default app.
 #[tauri::command]
 pub async fn open_download(id: String, app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<()> {

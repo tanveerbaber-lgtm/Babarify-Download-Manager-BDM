@@ -61,18 +61,20 @@ body {
   gap: 6px;
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--light-gray);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid #cfdcfb;
+  border-radius: 999px;
+  background: #f3f7ff;
+  color: #1d4ed8;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
+/* Brandboard primary: blue gradient pill. */
 .button.primary {
   border-color: transparent;
-  background: var(--blue);
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
   color: #fff;
 }
 

@@ -6,10 +6,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Babarify Download Manager</title>
     <script src="/theme-boot.js"></script>
+    <style>
+      /* Splash (Brandboard): shown until React replaces #root's contents. */
+      .boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: radial-gradient(120% 90% at 50% 0%, #17306a 0%, #0f172a 55%, #0a1226 100%);
+        color: #fff;
+        font-family: "Montserrat Variable", "Montserrat", "Segoe UI", system-ui, sans-serif;
+      }
+      .boot-splash img { width: 88px; height: 88px; filter: drop-shadow(0 12px 28px rgba(37, 99, 235, 0.45)); }
+      .boot-splash .name { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
+      .boot-splash .sub { font-size: 15px; font-weight: 500; color: #93c5fd; margin-top: -6px; }
+      .boot-splash .tag { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+      .boot-splash .dots { display: flex; gap: 6px; margin-top: 14px; }
+      .boot-splash .dots span { width: 6px; height: 6px; border-radius: 50%; background: #2563eb; animation: boot-dot 1.2s infinite ease-in-out; }
+      .boot-splash .dots span:nth-child(2) { animation-delay: 0.15s; background: #0ea5e9; }
+      .boot-splash .dots span:nth-child(3) { animation-delay: 0.3s; background: #10b981; }
+      @keyframes boot-dot { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-splash" role="status" aria-label="Loading Babarify Download Manager">
+        <img src="/logo.svg" alt="" />
+        <div class="name">Babarify</div>
+        <div class="sub">Download Manager</div>
+        <div class="tag">Faster Downloads. More Possibilities.</div>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-25 — Added the "Download File Info" dialog and the per-download window (status, connections, speed limit, when done). M6 done except a Windows 10 check.
+**Last updated:** 2026-10-25 — M7: BDM 1.0.0 installer built, installed on this PC and tested (install, uninstall, reinstall, install-over, Chrome and Edge). Branding refreshed from the new Brandboard. Open: clean-PC test, code signing, release tag.
 
 ## Progress
 
@@ -16,13 +16,15 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M4 — Chrome and Edge Integration | 10 | 2 | 12 | In progress (2 manual checks left) |
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
-| M7 — Windows Installer and Release | 0 | 0 | 10 | Not started |
-| **Total** | **59** | **4** | **73** | |
+| M7 — Windows Installer and Release | 8 | 2 | 10 | In progress |
+| **Total** | **67** | **6** | **73** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
 - [x] Initialize Tauri 2, React, TypeScript, Vite and Rust.
 - [x] Create Babarify branding, application icon and professional UI.
+  - [x] Refreshed from the Brandboard (2026-10-25): glossy "B" app icon (all sizes, ICO), logo, splash screen, pill buttons,
+        status chips with icons, gradient progress bars, stat cards with icon tiles, extension icons and panel logo
 - [x] Implement dashboard, sidebar, navigation and download table.
 - [x] Create SQLite database and versioned migrations.
 - [x] Implement settings persistence and light/dark themes.
@@ -193,13 +195,29 @@ Harden the application and validate production-quality behavior.
 
 ## M7 — Windows Installer and Release
 Package BDM for installation, maintenance and possible public distribution.
-- [ ] Create Windows x64 installer.
-- [ ] Configure application metadata, icons and version information.
-- [ ] Implement clean installation and uninstallation.
-- [ ] Verify download data survives application upgrades and remains user-controlled.
-- [ ] Package or manage required media dependencies in a license-compliant manner.
-- [ ] Implement a secure signed-update strategy if automatic updates are enabled.
-- [ ] Prepare privacy policy, license notices and release documentation.
-- [ ] Test on a clean Windows environment.
-- [ ] Verify Chrome and Edge integration after installation.
-- [ ] Complete final acceptance testing and release checklist.
+- [x] Create Windows x64 installer.
+  - [x] NSIS installer `Babarify Download Manager_1.0.0_x64-setup.exe` (3.3 MB), per-user, no admin prompt
+  - [x] Ships `bdm.exe`, the browser helper `bdm-native-host.exe` (as a Tauri sidecar) and `legal\`; installs WebView2 if missing
+- [x] Configure application metadata, icons and version information.
+  - [x] Version 1.0.0 everywhere (app, Cargo, package.json, extension); publisher Babarify; © 2026 Babarify
+  - [x] Windows file properties, Add/Remove Programs entry and Start menu shortcut verified; new Brandboard icons
+- [x] Implement clean installation and uninstallation.
+  - [x] First launch registers the browser helper for Chrome and Edge; re-checked every launch (moves and upgrades)
+  - [x] Uninstall removes program, shortcuts, Add/Remove entry and the Chrome/Edge registration; downloads untouched
+- [x] Verify download data survives application upgrades and remains user-controlled.
+  - [x] Development build → installed 1.0.0, uninstall → reinstall, and install-over-install: download list, settings and queues kept
+  - [x] Data lives in `%APPDATA%\com.babarify.bdm`; the uninstaller only deletes it if you tick the box
+- [x] Package or manage required media dependencies in a license-compliant manner.
+  - [x] yt-dlp, FFmpeg (GPL) and Deno are not bundled; downloaded on request from official releases, SHA-256 checked (THIRD_PARTY.md)
+- [x] Implement a secure signed-update strategy if automatic updates are enabled.
+  - [x] 1.0.0 has no automatic updates (install over to upgrade); the signed-update plan (updater key + Authenticode) is in RELEASE.md
+- [x] Prepare privacy policy, license notices and release documentation.
+  - [x] LICENSE.txt (proprietary), PRIVACY.md, THIRD_PARTY_NOTICES.txt (324 components), RELEASE.md; opened from Settings → About
+- [ ] Test on a clean Windows environment. *(in progress)*
+  - [x] Installed and uninstalled on this PC (Windows 11 Home); fresh browser profiles used for the browser checks
+  - [ ] A PC or VM that never had BDM or its tools (Windows Sandbox needs Windows Pro; none available here)
+- [x] Verify Chrome and Edge integration after installation.
+  - [x] Chrome 155 and Edge 156 reach the installed BDM 1.0.0 through the installed helper ("running", version 1.0.0)
+- [ ] Complete final acceptance testing and release checklist. *(in progress)*
+  - [x] Release checklist written (RELEASE.md); automated checks pass; install, upgrade, uninstall and browser checks done
+  - [ ] Code signing (needs a certificate), clean-PC test, git tag and publishing the installer

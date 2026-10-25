@@ -92,6 +92,7 @@ export const api = {
   showInFolder: (id: string) => call<void>("show_in_folder", { id }),
   fileSha256: (id: string) => call<string>("file_sha256", { id }),
   openDownloadWindow: (id: string) => call<void>("open_download_window", { id }),
+  openLegalDocument: (document: "license" | "privacy" | "notices") => call<void>("open_legal_document", { document }),
 };
 
 /** Event names emitted by the Rust engine (`src-tauri/src/engine/events.rs`). */

@@ -313,3 +313,29 @@ Requested after M6 from IDM screenshots; checked in the release build, with requ
   resume support; connection map and table for all 8 connections; Speed Limit tab showed the live limit.
 - Found and fixed: the window's sections shrank (connection map a thin line, panel text overflowing) → fixed layout.
 - Test downloads, the test file and the local-network setting were restored afterwards.
+
+## Brandboard refresh — 2026-10-25
+
+- New app icon drawn as SVG from the Brandboard (`assets/brand/bdm-app-icon.svg`, `bdm-mark.svg`), compared side by side
+  with the Brandboard art, then generated to every size with `tauri icon` (PNG, ICO, Store logos) and to the extension's
+  16/32/48/128 icons.
+- UI: pill buttons (gradient primary, soft secondary), status chips with icon circles, gradient progress bars, stat cards
+  with colored icon tiles, solid blue current page in the sidebar, navy splash screen; checked in the installed app.
+
+## M7 — Windows Installer and Release — 2026-10-25
+
+- `npx tauri build` → `Babarify Download Manager_1.0.0_x64-setup.exe` (3.3 MB). `bdm.exe` file properties: product and
+  description "Babarify Download Manager", version 1.0.0, company Babarify, © 2026 Babarify. All rights reserved.
+- Silent install (`/S`, 8 s): `%LOCALAPPDATA%\Babarify Download Manager\` with `bdm.exe`, `bdm-native-host.exe`
+  (721 KB, the real helper), `uninstall.exe`, `legal\` (LICENSE, PRIVACY, THIRD_PARTY_NOTICES); Add/Remove Programs
+  entry (1.0.0, Babarify); Start menu shortcut.
+- First launch: Chrome and Edge registration and the helper manifest switched to the installed helper; existing data
+  (7 downloads, schema v5) opened by the installed app.
+- Silent uninstall: program folder, Add/Remove entry, Start menu folder, Chrome/Edge keys and helper manifest removed;
+  app data and downloaded files kept.
+- Reinstall and install-over-install: data and browser registration intact.
+- Chrome 155 and Edge 156 (fresh profiles with the extension) → installed helper → `{"ok":true,"app":"running","version":"1.0.0"}`.
+- Build issues fixed: sidecar build failed on the space in the project path (no shell now); file locks from a running
+  helper/BDM during rebuilds.
+- Not covered: a clean PC/VM, code signing (no certificate), the interactive installer pages (silent mode was used),
+  and the uninstaller's "delete app data" option (not ticked, to keep your data).

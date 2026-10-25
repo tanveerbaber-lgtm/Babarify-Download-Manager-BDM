@@ -1,0 +1,56 @@
+# Privacy Policy
+
+**Babarify Download Manager (BDM) and its browser extension** · Effective 2026-10-25 · Version 1.0.0
+
+BDM is a desktop program. It has **no accounts, no telemetry, no analytics and no advertising**, and Babarify runs no
+servers that BDM talks to. Everything described below stays on your PC unless you download something.
+
+## What BDM stores, and where
+
+All of it lives in `%APPDATA%\com.babarify.bdm` on your PC:
+
+| Data | Why |
+| --- | --- |
+| Your download list: links, file names, folders, sizes, status, dates, the page a download came from | To show, resume, retry and organise downloads, and to warn about duplicates |
+| Settings, queues, schedules and categories | To remember your choices |
+| yt-dlp, FFmpeg and Deno, if you install them | To download video and audio |
+| A short-lived token and the app's location | So the browser helper can reach the running app |
+
+Downloaded files are saved where you choose. BDM never uploads them anywhere.
+
+## Network connections BDM makes
+
+- **The servers you download from**, when you add or resume a download. They see what any download would show: your
+  IP address, BDM's user agent and, for links sent by the browser, the referring site (only its origin when the
+  download is on another site).
+- **GitHub** (`api.github.com`, `github.com`), to install or update yt-dlp, FFmpeg and Deno, and to check for a
+  newer yt-dlp when BDM starts (you can turn that off in Settings → Media tools).
+- **Microsoft**, during installation only, if WebView2 needs to be installed.
+
+BDM doesn't send your download list, settings or any identifier to Babarify or anyone else.
+
+## The browser extension
+
+- When **Capture downloads** is on, it passes the link, file name, size and referring page of a download you start
+  to BDM on your PC (through Chrome's / Edge's native messaging). It doesn't read pages, cookies, passwords or
+  browsing history.
+- **Video detection** and the **on-video panel** are off until you turn them on and grant site access. Then the
+  extension looks for video on the pages you visit and, only when you click it, sends that page's address to BDM to
+  list formats.
+- Extension settings are kept in your browser's sync storage. The extension has no network access of its own.
+
+## Your control
+
+- Remove downloads from the list, or clear finished ones, at any time; files on disk stay.
+- Turn off capture, video detection, the panel or yt-dlp updates in their settings.
+- Uninstalling BDM removes the program and the browser registration. The uninstaller can also delete
+  `%APPDATA%\com.babarify.bdm` (your list and settings). Your downloaded files are never deleted.
+
+## Children
+
+BDM isn't directed at children and doesn't knowingly handle children's personal data.
+
+## Changes and contact
+
+Changes to this policy ship with new versions of BDM and are noted in the release notes. Questions: open an issue at
+https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM.

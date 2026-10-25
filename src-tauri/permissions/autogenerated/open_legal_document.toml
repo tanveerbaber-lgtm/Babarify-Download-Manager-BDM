@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-open-legal-document"
+description = "Enables the open_legal_document command without any pre-configured scope."
+commands.allow = ["open_legal_document"]
+
+[[permission]]
+identifier = "deny-open-legal-document"
+description = "Denies the open_legal_document command without any pre-configured scope."
+commands.deny = ["open_legal_document"]

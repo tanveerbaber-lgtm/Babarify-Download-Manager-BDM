@@ -43,9 +43,19 @@ const COMMANDS: &[&str] = &[
     "file_sha256",
     "bulk_action",
     "open_download_window",
+    "open_legal_document",
 ];
 
 fn main() {
+    // Tauri requires the sidecar file to exist for every build. Release
+    // bundles get the real helper from scripts/prepare-sidecar.mjs; other
+    // builds only need a placeholder so the check passes.
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let sidecar = std::path::Path::new("binaries").join(format!("bdm-native-host-{target}.exe"));
+    if !sidecar.exists() {
+        std::fs::create_dir_all("binaries").expect("create binaries/");
+        std::fs::write(&sidecar, b"").expect("write sidecar placeholder");
+    }
     // The app icon is embedded in the exe at build time; rebuild when it changes.
     println!("cargo:rerun-if-changed=icons");
     println!("cargo:rerun-if-changed=tauri.conf.json");

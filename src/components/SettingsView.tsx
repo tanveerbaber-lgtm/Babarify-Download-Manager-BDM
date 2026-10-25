@@ -123,6 +123,16 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
 
   const saveNumber = (key: NumberKey) => (n: number) => save({ [key]: n });
 
+  /** Runs an action, showing its error at the top of Settings. */
+  async function save2(action: () => Promise<unknown>) {
+    setError(null);
+    try {
+      await action();
+    } catch (err) {
+      setError((err as AppError).message);
+    }
+  }
+
   return (
     <div className="settings">
       {error && (
@@ -356,6 +366,18 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
           <dt>Database schema</dt>
           <dd>{info ? `v${info.schemaVersion}` : "—"}</dd>
         </dl>
+        <p className="about-copy">© 2026 Babarify. All rights reserved. Faster Downloads. More Possibilities.</p>
+        <div className="about-links">
+          <button type="button" className="link-button" onClick={() => save2(() => api.openLegalDocument("license"))}>
+            License
+          </button>
+          <button type="button" className="link-button" onClick={() => save2(() => api.openLegalDocument("privacy"))}>
+            Privacy Policy
+          </button>
+          <button type="button" className="link-button" onClick={() => save2(() => api.openLegalDocument("notices"))}>
+            Open-Source Notices
+          </button>
+        </div>
       </section>
     </div>
   );

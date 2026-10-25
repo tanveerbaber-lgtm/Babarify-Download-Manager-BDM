@@ -2,7 +2,7 @@
 
 A fast, reliable download manager for Windows, built with **Tauri 2**, **React**, **TypeScript** and **Rust**.
 
-> **Status:** Milestones 1–3 complete; M4–M6 (browser integration, advanced download management, security and reliability) built and verified, with a few manual checks left. Next: Windows installer and release (M7). See [LIMITATIONS.md](LIMITATIONS.md) and [THIRD_PARTY.md](THIRD_PARTY.md).
+> **Status:** Version 1.0.0. Milestones 1–3 complete; M4–M7 built and verified, with a few manual checks left (see MILESTONES.md). Install with `Babarify Download Manager_1.0.0_x64-setup.exe`; build it with `npx tauri build` (see [RELEASE.md](RELEASE.md)). Also: [LIMITATIONS.md](LIMITATIONS.md), [PRIVACY.md](PRIVACY.md), [THIRD_PARTY.md](THIRD_PARTY.md).
 >
 > *Faster Downloads. More Possibilities.* See [MILESTONES.md](MILESTONES.md).
 

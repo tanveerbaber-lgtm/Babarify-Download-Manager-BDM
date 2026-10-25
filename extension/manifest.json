@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Babarify Download Manager",
   "short_name": "BDM",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Send downloads, links and videos to Babarify Download Manager. Faster Downloads. More Possibilities.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyhA0L21X5Mwkuh+8iFHm8caNt07r43fJKTFb3kjSGeSnrpFmZLsT4hcmF2zEvV/eeXy1PrdV4whjd+Chz7hCvXellL4y7u3TDOymCWxG422I3xBtAXHy1IBzkU3tzysJx+c/S8Ks/8WfkzwqPFnIdm/2ZwsTIahdeS284SkIt81XfiPSEHtblKn9T9ZxPtoH4SKBZLogW+LW8SoO0WYL/lJ6ks8/GSJlYwgQytWtOznDG/yMo1/dhSErzpEYs3gGbqJ/rcOTuOaWwye/btpyEny31UHGRcWuLiXupDxOZHEoWIXPmnp4pp5UoRprSbn+s7uIVCfU/zxr2BoehXQp6QIDAQAB",
   "minimum_chrome_version": "116",

@@ -94,6 +94,18 @@ pub fn register(data_dir: &Path, host_exe: &Path) -> AppResult<()> {
     Ok(())
 }
 
+/// Whether the browsers' registration is missing or points at another helper
+/// (e.g. a development build, or an older install in another folder).
+pub fn needs_registration(data_dir: &Path, host_exe: &Path) -> bool {
+    let manifest = manifest_path(data_dir);
+    let points_here = std::fs::read(&manifest)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .and_then(|v| v["path"].as_str().map(PathBuf::from))
+        .is_some_and(|p| same_path(&p, host_exe));
+    !points_here || Browser::ALL.into_iter().any(|b| !read_key(b).is_some_and(|k| same_path(&k, &manifest)))
+}
+
 /// Removes both registry keys and the manifest.
 pub fn unregister(data_dir: &Path) -> AppResult<()> {
     for browser in Browser::ALL {

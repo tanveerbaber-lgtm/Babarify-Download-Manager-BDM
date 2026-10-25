@@ -232,6 +232,17 @@ pub fn run() {
                 });
             }
 
+            // Installed (release) builds point Chrome and Edge at their own helper on
+            // every launch, so a fresh install or an upgrade to a new folder just works.
+            #[cfg(all(windows, not(debug_assertions)))]
+            if let Ok(host) = browser::registry::host_exe_path()
+                && host.metadata().is_ok_and(|m| m.len() > 0)
+                && browser::registry::needs_registration(&data_dir, &host)
+                && let Err(e) = browser::registry::register(&data_dir, &host)
+            {
+                eprintln!("[bdm] couldn't register the browser helper: {e}");
+            }
+
             app.manage(AppState { database, engine, tools, data_dir: data_dir.clone(), fallback_download_dir });
 
             // Local endpoint for the browser helper. A fresh token each launch
@@ -293,6 +304,7 @@ pub fn run() {
             commands::file_sha256,
             commands::bulk_action,
             commands::open_download_window,
+            commands::open_legal_document,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

@@ -55,6 +55,15 @@
   --info-soft: #dbeafe;
   --neutral-soft: #eef2f7;
 
+  /* Brandboard: soft secondary buttons, icon tiles and progress track */
+  --btn-soft: #f3f7ff;
+  --btn-soft-hover: #e8f0ff;
+  --btn-soft-border: #cfdcfb;
+  --btn-soft-text: #1d4ed8;
+  --icon-soft: #eef4ff;
+  --icon-soft-hover: #dfeaff;
+  --track: #e2e8f0;
+
   color-scheme: light;
 }
 
@@ -89,6 +98,14 @@
   --info: #60a5fa;
   --info-soft: rgba(59, 130, 246, 0.16);
   --neutral-soft: rgba(255, 255, 255, 0.06);
+
+  --btn-soft: rgba(59, 130, 246, 0.1);
+  --btn-soft-hover: rgba(59, 130, 246, 0.18);
+  --btn-soft-border: rgba(96, 165, 250, 0.32);
+  --btn-soft-text: #bfdbfe;
+  --icon-soft: rgba(59, 130, 246, 0.12);
+  --icon-soft-hover: rgba(59, 130, 246, 0.2);
+  --track: rgba(255, 255, 255, 0.08);
 
   color-scheme: dark;
 }
