@@ -91,6 +91,7 @@ export const api = {
   openDownload: (id: string) => call<void>("open_download", { id }),
   showInFolder: (id: string) => call<void>("show_in_folder", { id }),
   fileSha256: (id: string) => call<string>("file_sha256", { id }),
+  openDownloadWindow: (id: string) => call<void>("open_download_window", { id }),
 };
 
 /** Event names emitted by the Rust engine (`src-tauri/src/engine/events.rs`). */
@@ -102,4 +103,5 @@ export const EVENTS = {
   browserAdded: "browser:added",
   browserMedia: "browser:media",
   queuesChanged: "queues:changed",
+  browserConfirm: "browser:confirm",
 } as const;

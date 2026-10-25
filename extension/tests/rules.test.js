@@ -84,6 +84,8 @@ test("page scripts may only ask for formats or a media download", () => {
   assert.equal(isPanelMessage({ type: "formats", url: "file:///C:/x" }), false);
   assert.equal(isPanelMessage({ type: "formats", url: "https://e.com", extra: 1 }), false);
   assert.equal(isPanelMessage({ type: "mediaDownload", url: "https://e.com" }), false, "options required");
+  assert.equal(isPanelMessage({ type: "mediaDownload", url: "https://e.com/v", options: {}, label: "MP4 · 1080p", size: 1234 }), true);
+  assert.equal(isPanelMessage({ type: "mediaDownload", url: "https://e.com/v", options: {}, size: "big" }), false);
   assert.equal(normalizeSettings({}).videoPanel, false, "panel is off until the user turns it on");
 });
 

@@ -299,3 +299,17 @@ Improvement made while testing: formats are requested as soon as the pointer rea
 
 ### Not covered
 - Windows 10 (no machine available).
+
+## "Download File Info" dialog and download window — 2026-10-25
+
+Requested after M6 from IDM screenshots; checked in the release build, with requests sent through the real native host.
+- File request (`download`, 20 MB, browser path in the name, referrer): dialog showed "Sample Video Archive.mp4",
+  20.0 MB, category Videos (from the extension), folder `Downloads\Videos`, queue Main. Start Download → the download
+  window opened → completed in ~4 s → completion summary (Open / Open Folder / Close); file saved in the new
+  `Downloads\Videos` folder.
+- Panel choice (`mediaDownload` for Big Buck Bunny, "MP4 · 1080p 60fps", ≈ 340 MB): dialog showed the title, format
+  chip, size estimate, editable name with `.mp4` kept, category Videos. Cancelled (nothing downloaded).
+- Download window on a 100 MB download limited to 3,000–4,000 KB/s: status, size, %, speed (~3–4 MB/s), time left,
+  resume support; connection map and table for all 8 connections; Speed Limit tab showed the live limit.
+- Found and fixed: the window's sections shrank (connection map a thin line, panel text overflowing) → fixed layout.
+- Test downloads, the test file and the local-network setting were restored afterwards.

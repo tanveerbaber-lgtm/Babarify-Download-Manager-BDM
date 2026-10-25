@@ -34,6 +34,8 @@ const KEY_NOTIFY_FAILURE: &str = "notify_on_failure";
 const KEY_WHEN_ALL_DONE: &str = "when_all_done";
 const KEY_DUPLICATE_ACTION: &str = "duplicate_action";
 const KEY_ALLOW_LOCAL: &str = "allow_local_network";
+const KEY_CONFIRM_BROWSER: &str = "confirm_browser_downloads";
+const KEY_SHOW_WINDOW: &str = "show_download_window";
 
 pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
 pub const MAX_RETRIES_LIMIT: u32 = 10;
@@ -66,6 +68,8 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         when_all_done: read(conn, KEY_WHEN_ALL_DONE)?.unwrap_or(WhenDone::Nothing),
         duplicate_action: read(conn, KEY_DUPLICATE_ACTION)?.unwrap_or(DuplicateAction::Add),
         allow_local_network: read(conn, KEY_ALLOW_LOCAL)?.unwrap_or(false),
+        confirm_browser_downloads: read(conn, KEY_CONFIRM_BROWSER)?.unwrap_or(true),
+        show_download_window: read(conn, KEY_SHOW_WINDOW)?.unwrap_or(true),
     })
 }
 
@@ -157,6 +161,12 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     if let Some(v) = patch.allow_local_network {
         write(&tx, KEY_ALLOW_LOCAL, &v)?;
     }
+    if let Some(v) = patch.confirm_browser_downloads {
+        write(&tx, KEY_CONFIRM_BROWSER, &v)?;
+    }
+    if let Some(v) = patch.show_download_window {
+        write(&tx, KEY_SHOW_WINDOW, &v)?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -219,6 +229,8 @@ mod tests {
             when_all_done: Some(WhenDone::Sleep),
             duplicate_action: Some(DuplicateAction::Skip),
             allow_local_network: Some(true),
+            confirm_browser_downloads: Some(false),
+            show_download_window: Some(false),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();

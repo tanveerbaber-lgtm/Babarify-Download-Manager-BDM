@@ -42,6 +42,7 @@ const COMMANDS: &[&str] = &[
     "show_in_folder",
     "file_sha256",
     "bulk_action",
+    "open_download_window",
 ];
 
 fn main() {

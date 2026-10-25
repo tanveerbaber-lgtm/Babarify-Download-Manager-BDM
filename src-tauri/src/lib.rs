@@ -74,6 +74,8 @@ impl EventSink for TauriSink {
 pub const EVENT_QUEUES_CHANGED: &str = "queues:changed";
 
 pub const EVENT_BROWSER_ADDED: &str = "browser:added";
+/// A browser request waiting for the "Download File Info" dialog.
+pub const EVENT_BROWSER_CONFIRM: &str = "browser:confirm";
 pub const EVENT_BROWSER_MEDIA: &str = "browser:media";
 
 #[derive(Clone, Serialize)]
@@ -91,6 +93,21 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+fn confirm_browser_downloads(state: &AppState) -> bool {
+    state
+        .db()
+        .and_then(|c| db::settings::load(&c, &state.fallback_download_dir))
+        .map(|s| s.confirm_browser_downloads)
+        .unwrap_or(true)
+}
+
+/// Shows the confirm dialog for a browser request instead of starting it.
+fn ask_user(app: &AppHandle, proposal: commands::BrowserProposal) -> BrowserResponse {
+    let _ = app.emit(EVENT_BROWSER_CONFIRM, &proposal);
+    show_main_window(app);
+    BrowserResponse::asked()
+}
+
 fn show_on_browser_add(state: &AppState) -> bool {
     state
         .db()
@@ -104,6 +121,12 @@ async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> Brow
     let state = app.state::<AppState>();
     match request {
         BrowserRequest::Ping => BrowserResponse::running(&app.package_info().version.to_string()),
+        BrowserRequest::Download { url, file_name, referrer, size, .. } if confirm_browser_downloads(&state) => {
+            match commands::propose_file(&state, &url, file_name.as_deref(), referrer.as_deref(), size) {
+                Ok(p) => ask_user(&app, p),
+                Err(e) => BrowserResponse::error(e.to_string()),
+            }
+        }
         BrowserRequest::Download { url, file_name, referrer, .. } => {
             match commands::add_from_browser(&state, &url, file_name.as_deref(), referrer.as_deref()) {
                 Ok(download) => {
@@ -140,7 +163,13 @@ async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> Brow
                 Err(e) => BrowserResponse::error(e.to_string()),
             }
         }
-        BrowserRequest::MediaDownload { url, title, options } => {
+        BrowserRequest::MediaDownload { url, title, options, label, size } if confirm_browser_downloads(&state) => {
+            match commands::propose_media(&state, &url, title.as_deref(), &options, label.as_deref(), size) {
+                Ok(p) => ask_user(&app, p),
+                Err(e) => BrowserResponse::error(e.to_string()),
+            }
+        }
+        BrowserRequest::MediaDownload { url, title, options, .. } => {
             let items = [commands::MediaItem { url, title }];
             match commands::add_media(&state, &items, &options, None, true) {
                 Ok(created) => {
@@ -263,6 +292,7 @@ pub fn run() {
             commands::show_in_folder,
             commands::file_sha256,
             commands::bulk_action,
+            commands::open_download_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

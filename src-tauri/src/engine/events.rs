@@ -24,6 +24,17 @@ pub struct Progress {
     pub connections: u32,
     /// What a media download is doing, e.g. "Merging video and audio".
     pub stage: Option<String>,
+    /// Per-connection progress of a segmented download (empty otherwise).
+    pub segments: Vec<SegmentView>,
+}
+
+/// One connection's byte range and how much of it has arrived.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentView {
+    pub start: u64,
+    pub len: u64,
+    pub done: u64,
 }
 
 /// Progress of installing or updating a media tool.

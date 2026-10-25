@@ -250,9 +250,9 @@
 
   async function download(url, title, choice) {
     menu.replaceChildren(note("note", `Sending ${choice.label} To BDM…`, true));
-    const reply = await send({ type: "mediaDownload", url, title, options: choice.options });
+    const reply = await send({ type: "mediaDownload", url, title, options: choice.options, label: choice.label, size: choice.sizeBytes ?? undefined });
     if (reply.ok) {
-      menu.replaceChildren(note("ok", `✓ Downloading In BDM: ${choice.label}`));
+      menu.replaceChildren(note("ok", reply.asked ? `✓ Opened In BDM: Confirm ${choice.label} There` : `✓ Downloading In BDM: ${choice.label}`));
       setTimeout(closeMenu, 2500);
     } else {
       menu.replaceChildren(note("err", reply.error || "BDM couldn't start the download."));

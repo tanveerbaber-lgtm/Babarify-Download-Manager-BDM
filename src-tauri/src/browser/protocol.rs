@@ -42,7 +42,14 @@ pub enum BrowserRequest {
     Formats { url: String },
     /// Start a video/audio download straight away with a choice from `Formats`.
     #[serde(rename_all = "camelCase")]
-    MediaDownload { url: String, title: Option<String>, options: MediaOptions },
+    MediaDownload {
+        url: String,
+        title: Option<String>,
+        options: MediaOptions,
+        /// The choice as shown, e.g. "MP4 · 1080p" (for the confirm dialog).
+        label: Option<String>,
+        size: Option<u64>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -59,6 +66,9 @@ pub struct BrowserResponse {
     /// Download choices, in reply to `Formats`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media: Option<MediaChoices>,
+    /// The request is waiting in BDM's "Download File Info" dialog.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub asked: bool,
 }
 
 /// What the on-video panel offers for one video.
@@ -87,7 +97,12 @@ pub struct MediaChoice {
 
 impl BrowserResponse {
     pub fn ok() -> Self {
-        Self { ok: true, app: None, version: None, error: None, media: None }
+        Self { ok: true, app: None, version: None, error: None, media: None, asked: false }
+    }
+
+    /// Accepted, but BDM is asking the user to confirm first.
+    pub fn asked() -> Self {
+        Self { asked: true, ..Self::ok() }
     }
 
     pub fn with_media(media: MediaChoices) -> Self {
@@ -146,10 +161,13 @@ impl BrowserRequest {
                 Ok(())
             }
             Self::Formats { url } => validation::validate_url(url).map(|_| ()),
-            Self::MediaDownload { url, title, options } => {
+            Self::MediaDownload { url, title, options, label, .. } => {
                 validation::validate_url(url)?;
                 if title.as_deref().is_some_and(|t| t.chars().count() > 1000) {
                     return Err(AppError::Validation("Title is too long.".into()));
+                }
+                if label.as_deref().is_some_and(|l| l.chars().count() > 100) {
+                    return Err(AppError::Validation("Label is too long.".into()));
                 }
                 args::validate(options)
             }

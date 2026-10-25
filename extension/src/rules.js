@@ -157,8 +157,15 @@ export function isPanelMessage(msg) {
   if (!msg || typeof msg !== "object" || !isHttpUrl(msg.url)) return false;
   if (msg.type === "formats") return Object.keys(msg).every((k) => k === "type" || k === "url");
   if (msg.type === "mediaDownload") {
-    const okKeys = Object.keys(msg).every((k) => ["type", "url", "title", "options"].includes(k));
-    return okKeys && typeof msg.options === "object" && msg.options !== null && (msg.title === undefined || typeof msg.title === "string");
+    const okKeys = Object.keys(msg).every((k) => ["type", "url", "title", "options", "label", "size"].includes(k));
+    return (
+      okKeys &&
+      typeof msg.options === "object" &&
+      msg.options !== null &&
+      (msg.title === undefined || typeof msg.title === "string") &&
+      (msg.label === undefined || typeof msg.label === "string") &&
+      (msg.size === undefined || msg.size === null || (Number.isInteger(msg.size) && msg.size >= 0))
+    );
   }
   return false;
 }

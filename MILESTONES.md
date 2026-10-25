@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-25 — M6 done except a Windows 10 check: security hardening, crash and load tests, dependency audit (no vulnerabilities), THIRD_PARTY.md and LIMITATIONS.md.
+**Last updated:** 2026-10-25 — Added the "Download File Info" dialog and the per-download window (status, connections, speed limit, when done). M6 done except a Windows 10 check.
 
 ## Progress
 
@@ -13,11 +13,11 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M1 — Desktop Foundation | 9 | 0 | 9 | ✅ Complete |
 | M2 — Core Download Engine | 10 | 0 | 10 | ✅ Complete |
 | M3 — Video and Audio Engine | 11 | 0 | 11 | ✅ Complete |
-| M4 — Chrome and Edge Integration | 9 | 2 | 11 | In progress (2 manual checks left) |
+| M4 — Chrome and Edge Integration | 10 | 2 | 12 | In progress (2 manual checks left) |
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 0 | 0 | 10 | Not started |
-| **Total** | **58** | **4** | **72** | |
+| **Total** | **59** | **4** | **73** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -80,6 +80,13 @@ Connect the browser to the Windows application.
   - [x] Panel, format list and one-click download verified in Chrome 155 (local page and YouTube) and Edge 156
   - [x] Off by default; no script on any page until switched on
   - [x] Turned on in your own Chrome: site-access prompt accepted, bar and full format list shown on YouTube
+- [x] "Download File Info" dialog and per-download window, like IDM but cleaner *(added 2026-10-25)*.
+  - [x] Browser downloads and panel choices open a confirm dialog: name, size, format, category, folder, queue
+  - [x] Category picks the folder (created if new); "Always save <category> here"; duplicate warning
+  - [x] Start Download / Download Later / Cancel; a setting lets browser downloads start without asking
+  - [x] Download window: status, speed, time left, resume support, live map and table of every connection
+  - [x] Speed Limit tab (applies live) and When Done tab (summary, open file/folder, all-done PC action)
+  - [x] Verified in the release build: file dialog → window → completion summary; video dialog (MP4 · 1080p 60fps)
 - [~] Test browser updates, permissions, installation and uninstallation.
   - [x] Extension install (fixed ID) and uninstall in Chrome 155 and Edge 156
   - [x] Native host register / unregister (HKCU) and the disconnected fallback

@@ -174,6 +174,10 @@ pub struct NewDownloadRequest {
     pub expected_sha256: Option<String>,
     /// Start immediately (default) or leave the download pending.
     pub start: Option<bool>,
+    /// The page that linked to the file (sent as Referer, origin-only across sites).
+    pub referrer: Option<String>,
+    /// Category id chosen in the dialog; detected from the name when omitted.
+    pub category: Option<String>,
     /// Queue to add it to; Main when omitted.
     pub queue_id: Option<String>,
     /// -1 low, 0 normal (default), 1 high.
@@ -280,6 +284,10 @@ pub struct Settings {
     pub duplicate_action: DuplicateAction,
     /// Allow links to this PC and the local network (off by default).
     pub allow_local_network: bool,
+    /// Ask before starting downloads sent by the browser ("Download File Info").
+    pub confirm_browser_downloads: bool,
+    /// Open a download's own window when it starts from that dialog.
+    pub show_download_window: bool,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -303,6 +311,8 @@ pub struct SettingsPatch {
     pub when_all_done: Option<WhenDone>,
     pub duplicate_action: Option<DuplicateAction>,
     pub allow_local_network: Option<bool>,
+    pub confirm_browser_downloads: Option<bool>,
+    pub show_download_window: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

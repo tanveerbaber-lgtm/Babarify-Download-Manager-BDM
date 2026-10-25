@@ -167,6 +167,20 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
             Change…
           </button>
         </div>
+        <SwitchSetting
+          id="confirm-browser"
+          title="Ask before downloading from the browser"
+          desc="Show the Download File Info dialog (name, category, folder) for downloads and videos sent by the browser."
+          checked={settings.confirmBrowserDownloads}
+          onChange={(v) => save({ confirmBrowserDownloads: v })}
+        />
+        <SwitchSetting
+          id="show-window"
+          title="Show the download window when a download starts"
+          desc="Opens a small window with live status, connections, speed limit and completion options."
+          checked={settings.showDownloadWindow}
+          onChange={(v) => save({ showDownloadWindow: v })}
+        />
         <NumberSetting
           id="max-concurrent"
           title="Simultaneous downloads"

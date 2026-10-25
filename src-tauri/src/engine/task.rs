@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::EngineConfig;
 use super::error::{EngineError, EngineResult};
-use super::events::{EventSink, Progress, SpeedMeter, eta_seconds};
+use super::events::{EventSink, Progress, SegmentView, SpeedMeter, eta_seconds};
 use super::files;
 use super::limiter::Limits;
 use super::http::{self, RemoteFile};
@@ -180,6 +180,7 @@ async fn segmented(
     let source = Arc::new(ProgressSource {
         counters: segs.iter().map(|s| AtomicU64::new(s.downloaded.min(s.len()))).collect(),
         segment_idx: segs.iter().map(|s| s.idx).collect(),
+        layout: segs.iter().map(|s| (s.start, s.len())).collect(),
     });
     let connections = segs.iter().filter(|s| s.remaining() > 0).count() as u32;
     let reporter = Reporter::spawn(ctx, id, source.clone(), Some(total), connections);
@@ -290,7 +291,7 @@ async fn single(
     remote: &RemoteFile,
     temp: &Path,
 ) -> EngineResult<u64> {
-    let source = Arc::new(ProgressSource { counters: vec![AtomicU64::new(0)], segment_idx: Vec::new() });
+    let source = Arc::new(ProgressSource { counters: vec![AtomicU64::new(0)], segment_idx: Vec::new(), layout: Vec::new() });
     let reporter = Reporter::spawn(ctx, id, source.clone(), remote.total_bytes, 1);
     let result = single_loop(ctx, download, remote, temp, &source.counters[0]).await;
     reporter.stop().await;
@@ -525,11 +526,21 @@ struct ProgressSource {
     counters: Vec<AtomicU64>,
     /// Segment index per counter; empty for single-stream downloads.
     segment_idx: Vec<u32>,
+    /// (start, length) per counter; empty for single-stream downloads.
+    layout: Vec<(u64, u64)>,
 }
 
 impl ProgressSource {
     fn total(&self) -> u64 {
         self.counters.iter().map(|c| c.load(Ordering::Acquire)).sum()
+    }
+
+    fn views(&self) -> Vec<SegmentView> {
+        self.layout
+            .iter()
+            .zip(&self.counters)
+            .map(|(&(start, len), c)| SegmentView { start, len, done: c.load(Ordering::Acquire).min(len) })
+            .collect()
     }
 
     fn segment_progress(&self) -> Vec<(u32, u64)> {
@@ -579,6 +590,7 @@ impl Reporter {
                     eta_seconds: eta_seconds(done, total, speed),
                     connections,
                     stage: None,
+                    segments: source.views(),
                 });
             };
             loop {

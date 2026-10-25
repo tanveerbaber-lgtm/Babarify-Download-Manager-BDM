@@ -3,6 +3,7 @@ import { Eraser, ListPlus, Pause, Play, Plus, Search, Square, Trash2 } from "luc
 import { Sidebar, describeSchedule } from "./components/Sidebar";
 import { DashboardStats } from "./components/DashboardStats";
 import { DownloadTable } from "./components/DownloadTable";
+import { DownloadInfoDialog } from "./components/DownloadInfoDialog";
 import { AddDownloadDialog } from "./components/AddDownloadDialog";
 import { BatchDialog } from "./components/BatchDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -22,7 +23,7 @@ import { useSettings } from "./hooks/useSettings";
 import { countByView, inView, isListView, LIST_VIEW_TITLES, OTHER_CATEGORY, type StatusView, type View } from "./lib/views";
 import { canCancel, canPause, canRedownload, canResume, eligible } from "./lib/actions";
 import { formatSpeed } from "./lib/format";
-import type { AppError, BrowserMedia, Download, Priority, Queue } from "./lib/types";
+import type { AppError, BrowserMedia, BrowserProposal, Download, Priority, Queue } from "./lib/types";
 
 export default function App() {
   const { downloads, progress, loading, error: loadError, add, addMedia, addBatch, merge, forget, run } = useDownloads();
@@ -40,6 +41,8 @@ export default function App() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  /** Browser requests waiting for "Download File Info", oldest first. */
+  const [proposals, setProposals] = useState<BrowserProposal[]>([]);
 
   const openAdd = useCallback((tab: Tab = "file", mediaUrl?: string) => {
     setAddTab(tab);
@@ -53,6 +56,7 @@ export default function App() {
   useEffect(() => {
     const stops = [
       listen<Download>(EVENTS.browserAdded, ({ payload }) => notify(`Added from your browser: ${payload.fileName}`)),
+      listen<BrowserProposal>(EVENTS.browserConfirm, ({ payload }) => setProposals((p) => [...p, payload])),
       listen<BrowserMedia>(EVENTS.browserMedia, ({ payload }) => {
         setView("all");
         setAddOpen(false);
@@ -197,10 +201,18 @@ export default function App() {
     }
   }
 
+  async function openWindow(d: Download) {
+    try {
+      await api.openDownloadWindow(d.id);
+    } catch (err) {
+      setActionError((err as AppError).message);
+    }
+  }
+
+  /** Double-click / Enter: open a finished file, otherwise the download's window. */
   function activate(d: Download) {
     if (d.status === "completed") void openFile(d);
-    else if (canResume(d)) void act("resume", [d.id]);
-    else if (canPause(d)) void act("pause", [d.id]);
+    else void openWindow(d);
   }
 
   function menuEntries(): MenuEntry[] {
@@ -214,6 +226,7 @@ export default function App() {
     const priorities: [Priority, string][] = [[1, "High"], [0, "Normal"], [-1, "Low"]];
     return [
       { label: "Open", disabled: !one || one.status !== "completed", onSelect: () => one && openFile(one) },
+      { label: "Details…", disabled: !one, onSelect: () => one && openWindow(one) },
       { label: "Show in Folder", disabled: !one, onSelect: () => one && showInFolder(one) },
       { label: one ? "Copy Link" : `Copy ${sel.length} Links`, onSelect: () => copyLinks(sel) },
       { label: "Copy SHA-256 Checksum", disabled: !one || one.status !== "completed", onSelect: () => one && copyChecksum(one) },
@@ -422,6 +435,22 @@ export default function App() {
           onClose={() => setAddOpen(false)}
           onAdd={add}
           onAddMedia={addMedia}
+        />
+      )}
+      {settings && proposals.length > 0 && (
+        <DownloadInfoDialog
+          key={`${proposals[0].url}-${proposals.length}`}
+          proposal={proposals[0]}
+          settings={settings}
+          categories={categories}
+          queues={queues}
+          onClose={() => setProposals((p) => p.slice(1))}
+          onAdded={(created, started) => {
+            merge(created);
+            if (started && settings.showDownloadWindow && created[0]) void openWindow(created[0]);
+            else notify(started ? `Downloading ${created[0]?.fileName}` : `Added for later: ${created[0]?.fileName}`);
+          }}
+          onCategoriesChanged={refreshQueues}
         />
       )}
       <BatchDialog key={`batch-${batchOpen}`} open={batchOpen} queues={queues} onClose={() => setBatchOpen(false)} onAdd={addBatch} />

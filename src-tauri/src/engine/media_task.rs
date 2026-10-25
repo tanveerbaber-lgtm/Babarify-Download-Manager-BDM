@@ -286,6 +286,7 @@ fn emit(ctx: &TaskContext, id: &str, state: &mut MediaProgress) {
         eta_seconds: if processing { None } else { eta_seconds(done, total, speed) },
         connections: 1,
         stage: state.stage.clone(),
+        segments: Vec::new(),
     });
 }
 

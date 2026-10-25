@@ -1617,3 +1617,311 @@ code {
   flex-wrap: wrap;
   row-gap: 6px;
 }
+
+/* ---------- Download File Info dialog ---------- */
+
+.info-dialog {
+  width: min(600px, calc(100vw - 32px));
+}
+
+.info-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.info-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--radius);
+  background: var(--brand-gradient);
+  color: #fff;
+}
+
+.info-meta {
+  min-width: 0;
+}
+
+.info-title {
+  font-weight: 650;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.info-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.info-chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.info-url {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ext-tag {
+  align-self: center;
+  padding: 0 4px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.check.small {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* ---------- Per-download window ---------- */
+
+.dlw {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100vh;
+  padding: 14px 16px 16px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: auto;
+}
+
+.dlw-empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+
+.dlw-tabs {
+  padding: 0;
+  margin: 0;
+}
+
+.dlw-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px 16px;
+  min-height: 210px;
+}
+
+.dlw-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 7px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.dlw-grid dt {
+  color: var(--text-3);
+}
+
+.dlw-grid dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.dlw-url {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dlw-url span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.icon-button.small {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.dlw-status {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.dlw-status-downloading {
+  color: var(--brand);
+}
+
+.dlw-status-completed {
+  color: var(--success);
+}
+
+.dlw-status-failed {
+  color: var(--danger);
+}
+
+.dlw-error {
+  display: block;
+  margin-top: 2px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.dlw-progress {
+  height: 10px;
+}
+
+.dlw-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dlw-spacer {
+  flex: 1;
+}
+
+.dlw-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.dlw-map-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.dlw-map {
+  position: relative;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dlw-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--surface);
+}
+
+.dlw-seg-fill,
+.dlw-seg-single {
+  height: 100%;
+  background: var(--brand-gradient);
+}
+
+.dlw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dlw-table th,
+.dlw-table td {
+  text-align: left;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.dlw-table th {
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.dlw-limit,
+.dlw-done {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dlw-rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.dlw-rate strong {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.dlw-limit-row {
+  align-items: center;
+  max-width: 220px;
+}
+
+.dlw-when {
+  max-width: 260px;
+}
+
+.dlw-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: auto;
+  max-width: 520px;
+  text-align: center;
+}
+
+.dlw-complete h1 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.dlw-complete-icon {
+  color: var(--success);
+}
+
+.dlw-complete .dlw-grid {
+  text-align: left;
+  width: 100%;
+}
+
+.dlw-name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* The download window scrolls as a whole; its sections keep their natural height. */
+.dlw > *,
+.dlw-details > * {
+  flex-shrink: 0;
+}
+

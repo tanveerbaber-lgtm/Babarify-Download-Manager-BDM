@@ -109,6 +109,14 @@ export interface Progress {
   connections: number;
   /** Media stage, e.g. "Merging video and audio". */
   stage: string | null;
+  /** Per-connection progress of a segmented download. */
+  segments: SegmentView[];
+}
+
+export interface SegmentView {
+  start: number;
+  len: number;
+  done: number;
 }
 
 export interface NewDownloadRequest {
@@ -123,6 +131,10 @@ export interface NewDownloadRequest {
   priority?: Priority;
   /** The download's own speed limit in KB/s. */
   speedLimitKbps?: number;
+  /** Page that linked to the file. */
+  referrer?: string;
+  /** Category id chosen by the user ("other" = none). */
+  category?: string;
 }
 
 export type WhenDone = "nothing" | "sleep" | "shutdown" | "exit";
@@ -150,6 +162,10 @@ export interface Settings {
   duplicateAction: DuplicateAction;
   /** Allow links to this PC and the local network. */
   allowLocalNetwork: boolean;
+  /** Ask before starting downloads sent by the browser. */
+  confirmBrowserDownloads: boolean;
+  /** Open a download's own window when it starts from the dialog. */
+  showDownloadWindow: boolean;
 }
 
 export type SettingsPatch = Partial<Settings>;
@@ -245,6 +261,23 @@ export interface NewMediaRequest {
   options: MediaOptions;
   destinationDir?: string;
   start?: boolean;
+  category?: string;
+}
+
+/** Payload of `browser:confirm`: a browser request waiting for the user. */
+export interface BrowserProposal {
+  kind: "file" | "media";
+  url: string;
+  fileName: string;
+  size: number | null;
+  referrer: string | null;
+  /** Detected category id, or "other". */
+  category: string;
+  title: string | null;
+  options: MediaOptions | null;
+  /** e.g. "MP4 · 1080p". */
+  label: string | null;
+  duplicate: Download | null;
 }
 
 // ---------------------------------------------------------------- browser

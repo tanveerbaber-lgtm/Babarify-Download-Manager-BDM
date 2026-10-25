@@ -62,10 +62,17 @@ pub async fn add_download(
         _ => validation::file_name_from_url(&url),
     };
 
+    let referrer = request
+        .referrer
+        .as_deref()
+        .filter(|r| !r.trim().is_empty())
+        .map(validation::validate_url)
+        .transpose()?;
     let created = {
         let conn = state.db()?;
         let queue_id = queue_or_main(&conn, request.queue_id.as_deref())?;
-        let (destination_dir, category) = placement(&conn, &state, request.destination_dir.as_deref(), &file_name)?;
+        let (destination_dir, category) =
+            placement_in(&conn, &state, request.destination_dir.as_deref(), &file_name, request.category.as_deref())?;
         downloads::insert(
             &conn,
             &downloads::InsertDownload {
@@ -76,7 +83,7 @@ pub async fn add_download(
                 kind: DownloadKind::File,
                 title: None,
                 media_options: None,
-                referrer: None,
+                referrer: referrer.as_ref().map(url::Url::as_str),
                 queue_id: &queue_id,
                 priority: request.priority.unwrap_or(0),
                 category: category.as_deref(),
@@ -321,6 +328,8 @@ pub struct NewMediaRequest {
     pub options: MediaOptions,
     pub destination_dir: Option<String>,
     pub start: Option<bool>,
+    /// Category id chosen in the dialog; Videos/Music by format when omitted.
+    pub category: Option<String>,
 }
 
 /// Adds one media download per item, all with the same options.
@@ -329,12 +338,13 @@ pub async fn add_media_downloads(
     request: NewMediaRequest,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<Download>> {
-    add_media(
+    add_media_in(
         &state,
         &request.items,
         &request.options,
         request.destination_dir.as_deref(),
         request.start.unwrap_or(true),
+        request.category.as_deref(),
     )
 }
 
@@ -345,6 +355,17 @@ pub(crate) fn add_media(
     options: &MediaOptions,
     destination_dir: Option<&str>,
     start: bool,
+) -> AppResult<Vec<Download>> {
+    add_media_in(state, items, options, destination_dir, start, None)
+}
+
+pub(crate) fn add_media_in(
+    state: &AppState,
+    items: &[MediaItem],
+    options: &MediaOptions,
+    destination_dir: Option<&str>,
+    start: bool,
+    category: Option<&str>,
 ) -> AppResult<Vec<Download>> {
     if items.is_empty() {
         return Err(AppError::Validation("Choose at least one video.".into()));
@@ -361,7 +382,7 @@ pub(crate) fn add_media(
 
     let created = {
         let conn = state.db()?;
-        let (destination_dir, category) = placement(&conn, state, destination_dir, &format!("x.{ext}"))?;
+        let (destination_dir, category) = placement_in(&conn, state, destination_dir, &format!("x.{ext}"), category)?;
         let dest = destination_dir.to_string_lossy();
         let mut created = Vec::with_capacity(urls.len());
         for (item, url) in items.iter().zip(&urls) {
@@ -419,9 +440,34 @@ pub(crate) fn placement(
     requested: Option<&str>,
     file_name: &str,
 ) -> AppResult<(PathBuf, Option<String>)> {
-    let category = categories::for_file_name(conn, file_name)?;
+    placement_in(conn, state, requested, file_name, None)
+}
+
+/// Like [`placement`], with a category the user picked (`"other"` = none).
+pub(crate) fn placement_in(
+    conn: &rusqlite::Connection,
+    state: &AppState,
+    requested: Option<&str>,
+    file_name: &str,
+    chosen_category: Option<&str>,
+) -> AppResult<(PathBuf, Option<String>)> {
+    let category = match chosen_category {
+        Some("other") => None,
+        Some(id) => Some(
+            categories::list(conn)?
+                .into_iter()
+                .find(|c| c.id == id)
+                .ok_or_else(|| AppError::Validation("That category no longer exists.".into()))?,
+        ),
+        None => categories::for_file_name(conn, file_name)?,
+    };
     let id = category.as_ref().map(|c| c.id.clone());
     if let Some(dir) = requested.map(str::trim).filter(|d| !d.is_empty()) {
+        // A new folder inside an existing one (e.g. "Downloads\Videos") is created.
+        let path = Path::new(dir);
+        if path.is_absolute() && !path.exists() && path.parent().is_some_and(Path::is_dir) {
+            std::fs::create_dir(path)?;
+        }
         return Ok((validation::validate_destination_dir(dir)?, id));
     }
     let s = settings::load(conn, &state.fallback_download_dir)?;
@@ -467,6 +513,115 @@ pub async fn unregister_browser_integration(state: State<'_, AppState>) -> AppRe
     Ok(registry::status(&state.data_dir))
 }
 
+/// What the "Download File Info" dialog needs for a request from the browser.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserProposal {
+    /// "file" or "media".
+    pub kind: &'static str,
+    pub url: String,
+    pub file_name: String,
+    pub size: Option<u64>,
+    pub referrer: Option<String>,
+    /// Detected category id ("other" when none matches).
+    pub category: String,
+    pub title: Option<String>,
+    pub options: Option<MediaOptions>,
+    /// e.g. "MP4 · 1080p".
+    pub label: Option<String>,
+    /// A previous download of the same link, if any.
+    pub duplicate: Option<Download>,
+}
+
+/// The file name to use for a browser download (browsers may send a full path).
+fn browser_file_name(url: &url::Url, file_name: Option<&str>) -> String {
+    match file_name.map(|n| n.rsplit(['/', '\\']).next().unwrap_or_default().trim()) {
+        Some(name) if !name.is_empty() => validation::sanitize_file_name(name),
+        _ => validation::file_name_from_url(url),
+    }
+}
+
+/// Validates a browser file request and describes it for the confirm dialog.
+pub(crate) fn propose_file(
+    state: &AppState,
+    url: &str,
+    file_name: Option<&str>,
+    referrer: Option<&str>,
+    size: Option<i64>,
+) -> AppResult<BrowserProposal> {
+    let url = validation::validate_url(url)?;
+    let referrer = referrer.filter(|r| !r.trim().is_empty()).map(validation::validate_url).transpose()?;
+    let file_name = browser_file_name(&url, file_name);
+    let conn = state.db()?;
+    let category = categories::for_file_name(&conn, &file_name)?.map_or_else(|| "other".to_string(), |c| c.id);
+    let duplicate = downloads::find_by_url(&conn, url.as_str())?.filter(|d| d.status != DownloadStatus::Cancelled);
+    Ok(BrowserProposal {
+        kind: "file",
+        url: url.to_string(),
+        file_name,
+        size: size.and_then(|s| u64::try_from(s).ok()).filter(|s| *s > 0),
+        referrer: referrer.map(|r| r.to_string()),
+        category,
+        title: None,
+        options: None,
+        label: None,
+        duplicate,
+    })
+}
+
+/// Describes a video/audio choice from the on-video panel for the confirm dialog.
+pub(crate) fn propose_media(
+    state: &AppState,
+    url: &str,
+    title: Option<&str>,
+    options: &MediaOptions,
+    label: Option<&str>,
+    size: Option<u64>,
+) -> AppResult<BrowserProposal> {
+    let url = validation::validate_url(url)?;
+    args::validate(options)?;
+    let ext = expected_extension(options);
+    let title = title.map(str::trim).filter(|t| !t.is_empty());
+    let base = title.map(validation::sanitize_file_name).unwrap_or_else(|| validation::file_name_from_url(&url));
+    let file_name = format!("{base}.{ext}");
+    let conn = state.db()?;
+    let category = categories::for_file_name(&conn, &file_name)?.map_or_else(|| "other".to_string(), |c| c.id);
+    let duplicate = downloads::find_by_url(&conn, url.as_str())?.filter(|d| d.status != DownloadStatus::Cancelled);
+    Ok(BrowserProposal {
+        kind: "media",
+        url: url.to_string(),
+        file_name,
+        size,
+        referrer: None,
+        category,
+        title: title.map(str::to_owned),
+        options: Some(options.clone()),
+        label: label.map(str::to_owned),
+        duplicate,
+    })
+}
+
+/// Opens (or focuses) a download's own window.
+#[tauri::command]
+pub async fn open_download_window(id: String, app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    use tauri::Manager;
+    let d = downloads::require(&*state.db()?, validate_id(&id)?)?;
+    let label = format!("download-{}", d.id);
+    if let Some(w) = app.get_webview_window(&label) {
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
+        .title(d.title.as_deref().unwrap_or(&d.file_name))
+        .inner_size(600.0, 560.0)
+        .min_inner_size(480.0, 400.0)
+        .resizable(true)
+        .build()
+        .map_err(|e| AppError::Internal(format!("couldn't open the download window: {e}")))?;
+    Ok(())
+}
+
 /// Adds a download sent by the browser extension and starts it.
 pub(crate) fn add_from_browser(
     state: &AppState,
@@ -479,11 +634,7 @@ pub(crate) fn add_from_browser(
         .filter(|r| !r.trim().is_empty())
         .map(validation::validate_url)
         .transpose()?;
-    // Browsers may report a full path; only the name is used.
-    let file_name = match file_name.map(|n| n.rsplit(['/', '\\']).next().unwrap_or_default().trim()) {
-        Some(name) if !name.is_empty() => validation::sanitize_file_name(name),
-        _ => validation::file_name_from_url(&url),
-    };
+    let file_name = browser_file_name(&url, file_name);
     let created = {
         let conn = state.db()?;
         let s = settings::load(&conn, &state.fallback_download_dir)?;
