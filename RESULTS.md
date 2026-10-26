@@ -692,3 +692,29 @@ With the test installer installed from Explorer (BDM process started 7:33 PM), u
   after a sign-in, and `--start`/`--later` (they share the Add dialog's code; not run to keep your list unchanged).
 - **Tray menu** (confirmed by you): right-clicking the tray icon shows Open BDM, Add Download…, Resume All, Pause All and
   Quit BDM.
+
+## Final check (2026-10-26)
+
+**Automated:** 189 Rust tests, 14 extension tests, TypeScript, the production frontend build and Clippy pass.
+`npm audit`: 0 vulnerabilities. `cargo audit`: 0 vulnerabilities; 5 warnings (unmaintained `proc-macro-error`,
+`zbus_names`, `zvariant`, `zvariant_derive`; unsound `glib` iterator), all in Tauri's Linux-only dependencies and not
+built for Windows. The code has never been run through `rustfmt` (no config); left as is.
+
+**In the installed app** (computer use):
+- Add Download: typing a link filled in the file name; Download started it; the list showed size, speed, time left
+  and filed `.bin` under a new "Other" category.
+- Download window: progress, transfer rate, time left, the 8-range connections table and map; Pause kept 14.8 MB and
+  Resume continued from there (16.2 MB next); the Speed Limit tab showed the current speed, switch and presets.
+- **Found:** Hetzner's test server (`fsn1-speed.hetzner.com/100MB.bin`) allows only two downloads per visitor and
+  answered the others with HTTP 429. Those connections retried, ran out of retries, and failed the whole download at
+  21% although two connections were working. **Fixed:** a connection refused with 429/503 while others still work
+  now hands its range back and stops; the others take it over (dynamic segmentation). The last connection never
+  leaves this way. Test: a server limited to two connections, eight planned; the 4 MiB download completes
+  byte-exact after the extra connections were refused.
+- **Found:** a paused or failed download's window showed a made-up "single connection" row. **Fixed:** the window
+  keeps the ranges it last saw, and the fallback row only says "single connection" while downloading.
+- Not yet: browser capture, the right-click menu and the video panel (Claude in Chrome disconnected), and the Hetzner
+  file again with the fix installed.
+
+**Store listing guide:** STORE_LISTING.md (Chrome Web Store and Edge Add-ons: accounts, ZIP, images, privacy
+answers, permission justifications, and the store extension IDs BDM must allow before publishing).

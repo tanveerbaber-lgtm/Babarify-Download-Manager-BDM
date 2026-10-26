@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::Router;
+use futures_util::StreamExt;
 use axum::body::{Body, Bytes};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
@@ -37,6 +38,10 @@ pub struct FileSpec {
     /// Extra delay per chunk for requests whose range starts exactly here,
     /// like one slow connection among several fast ones.
     pub slow_start: Option<(usize, Duration)>,
+    /// Refuse requests (HTTP 429) while this many bodies are being sent,
+    /// like servers that allow only a few connections per visitor.
+    pub max_connections: Option<usize>,
+    pub open_connections: Arc<AtomicUsize>,
 }
 
 impl FileSpec {
@@ -51,6 +56,8 @@ impl FileSpec {
             stall_times: AtomicU32::new(0),
             chunk_delay: Duration::ZERO,
             slow_start: None,
+            max_connections: None,
+            open_connections: Arc::new(AtomicUsize::new(0)),
         }
     }
     pub fn no_ranges(self) -> Self {
@@ -76,6 +83,10 @@ impl FileSpec {
     }
     pub fn delay(mut self, per_chunk: Duration) -> Self {
         self.chunk_delay = per_chunk;
+        self
+    }
+    pub fn max_connections(mut self, n: usize) -> Self {
+        self.max_connections = Some(n);
         self
     }
     pub fn slow_from(mut self, start: usize, per_chunk: Duration) -> Self {
@@ -239,6 +250,14 @@ async fn serve_file(
     let etag = spec.etag.lock().unwrap().clone();
     let ranges = spec.ranges.load(Ordering::SeqCst);
     let total = data.len();
+    // The size probe (bytes=0-0) is always answered, as real servers do.
+    let probe = range_header.as_deref() == Some("bytes=0-0");
+    if !probe
+        && let Some(max) = spec.max_connections
+        && spec.open_connections.load(Ordering::SeqCst) >= max
+    {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
 
     let mut status = StatusCode::OK;
     let (mut start, mut end) = (0usize, total);
@@ -262,7 +281,11 @@ async fn serve_file(
     let stall = body_len > CHUNK && take_one(&spec.stall_times);
     let delay = spec.chunk_delay + spec.slow_start.filter(|(at, _)| *at == start).map_or(Duration::ZERO, |(_, d)| d);
 
-    let stream = async_stream(data, start, end, drop_at, stall, delay, sent);
+    let open = (!probe).then(|| OpenConnection::new(spec.open_connections.clone()));
+    let stream = async_stream(data, start, end, drop_at, stall, delay, sent).map(move |chunk| {
+        let _held = &open;
+        chunk
+    });
     let mut resp = Response::builder().status(status);
     let h = resp.headers_mut().unwrap();
     // Like a real download server: browsers save these instead of showing them.
@@ -283,6 +306,22 @@ async fn serve_file(
         h.insert(header::CONTENT_LENGTH, HeaderValue::from(body_len));
     }
     resp.body(Body::from_stream(stream)).unwrap()
+}
+
+/// Counts a body being sent until the stream is dropped (finished or the client went away).
+struct OpenConnection(Arc<AtomicUsize>);
+
+impl OpenConnection {
+    fn new(count: Arc<AtomicUsize>) -> Self {
+        count.fetch_add(1, Ordering::SeqCst);
+        Self(count)
+    }
+}
+
+impl Drop for OpenConnection {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 fn async_stream(

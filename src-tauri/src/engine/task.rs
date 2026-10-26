@@ -272,7 +272,15 @@ fn covers(segs: &[Segment], total: u64) -> bool {
         && segs.iter().all(|s| s.start <= s.end && s.downloaded <= s.len())
 }
 
-/// One connection: downloads its range, then takes more work until none is left.
+/// Servers that allow only a few connections per visitor refuse the rest
+/// like this (HTTP 429 Too Many Requests, or 503).
+fn refuses_extra_connections(e: &EngineError) -> bool {
+    matches!(e, EngineError::Http { status: 429 | 503, .. })
+}
+
+/// One connection: downloads its range, then takes more work until none is
+/// left. If the server refuses it while others still work, it hands its
+/// range back and stops, so the download carries on with fewer connections.
 async fn segment_worker(
     ctx: &TaskContext,
     remote: &RemoteFile,
@@ -281,21 +289,45 @@ async fn segment_worker(
     stop: &CancellationToken,
 ) -> EngineResult<()> {
     let Some(mut slot) = source.take_work(ctx.cfg.min_segment_size) else { return Ok(()) };
+    source.workers.fetch_add(1, Ordering::AcqRel);
+    let result = run_worker(ctx, remote, temp, source, &mut slot, stop).await;
+    if !matches!(result, Ok(WorkerEnd::Left)) {
+        source.workers.fetch_sub(1, Ordering::AcqRel);
+    }
+    result.map(|_| ())
+}
+
+enum WorkerEnd {
+    /// Nothing left to do.
+    Done,
+    /// Refused by the server; its range went back to the others.
+    Left,
+}
+
+async fn run_worker(
+    ctx: &TaskContext,
+    remote: &RemoteFile,
+    temp: &Path,
+    source: &ProgressSource,
+    slot: &mut Arc<Slot>,
+    stop: &CancellationToken,
+) -> EngineResult<WorkerEnd> {
     let mut failures = 0;
     loop {
         if slot.remaining() == 0 {
             match source.take_work(ctx.cfg.min_segment_size) {
                 Some(next) => {
-                    slot = next;
+                    *slot = next;
                     failures = 0;
                 }
-                None => return Ok(()),
+                None => return Ok(WorkerEnd::Done),
             }
             continue;
         }
         let before = slot.done();
-        match fetch_range(ctx, remote, temp, &slot, stop).await {
+        match fetch_range(ctx, remote, temp, slot, stop).await {
             Ok(()) => failures = 0,
+            Err(e) if refuses_extra_connections(&e) && source.leave(slot) => return Ok(WorkerEnd::Left),
             Err(e) if e.is_retryable() && failures < ctx.max_retries => {
                 if slot.done() > before {
                     failures = 0;
@@ -628,16 +660,18 @@ struct ProgressSource {
     slots: Mutex<Vec<Arc<Slot>>>,
     /// Single-stream downloads have one counter and no byte ranges.
     segmented: bool,
+    /// Connections still working; one always stays, whatever the server says.
+    workers: std::sync::atomic::AtomicUsize,
 }
 
 impl ProgressSource {
     fn segmented(segs: &[Segment]) -> Self {
         let slots = segs.iter().map(|s| Arc::new(Slot::new(s.idx, s.start, s.end, s.downloaded.min(s.len())))).collect();
-        Self { slots: Mutex::new(slots), segmented: true }
+        Self { slots: Mutex::new(slots), segmented: true, workers: std::sync::atomic::AtomicUsize::new(0) }
     }
 
     fn single() -> Self {
-        Self { slots: Mutex::new(vec![Arc::new(Slot::new(0, 0, u64::MAX - 1, 0))]), segmented: false }
+        Self { slots: Mutex::new(vec![Arc::new(Slot::new(0, 0, u64::MAX - 1, 0))]), segmented: false, workers: std::sync::atomic::AtomicUsize::new(0) }
     }
 
     fn slots(&self) -> Vec<Arc<Slot>> {
@@ -668,6 +702,25 @@ impl ProgressSource {
         let mut slots = self.slots();
         slots.sort_by_key(|s| s.start);
         slots.iter().map(|s| SegmentView { start: s.start, len: s.len(), done: s.done() }).collect()
+    }
+
+    /// A connection gives its range back and stops, unless it's the last one
+    /// working (then it keeps retrying as usual).
+    fn leave(&self, slot: &Slot) -> bool {
+        let mut n = self.workers.load(Ordering::Acquire);
+        let left = loop {
+            if n <= 1 {
+                break false;
+            }
+            match self.workers.compare_exchange(n, n - 1, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break true,
+                Err(now) => n = now,
+            }
+        };
+        if left {
+            slot.claimed.store(false, Ordering::Release);
+        }
+        left
     }
 
     /// The current layout, for saving.

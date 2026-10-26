@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: tray menu confirmed in the installed app; only Windows startup after a sign-in is left to check. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — Final check in progress: automated checks pass; a real server's connection limit (HTTP 429) failed a download, fixed (BDM carries on with fewer connections); STORE_LISTING.md written. Browser checks wait for Claude in Chrome. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -284,6 +284,7 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] Resumed downloads use as many connections as a fresh plan, so one big leftover range is spread out again
   - [x] The split layout is saved with progress; pause, restart and resume after splits are byte-exact (tests)
   - [x] Test: one slow connection among eight on a 16 MiB file; finished in under 4 s instead of over 5 s
+  - [x] Servers that allow only a few connections (HTTP 429/503 for the rest): extra connections hand their range back and stop; the last one keeps retrying (found on Hetzner's test server)
 - [x] Refresh expired links: resume a download from a new link to the same file.
   - [x] Right-click → Refresh Download Link…: paste a new link; BDM checks it and continues with the progress kept
   - [x] Same file check: same size, same ETag where both have one, and the new server must resume if there's progress

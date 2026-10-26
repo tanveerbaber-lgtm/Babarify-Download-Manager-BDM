@@ -493,6 +493,21 @@ async fn a_filling_drive_pauses_a_download_of_unknown_size() {
     assert_eq!(d.error_message, None);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn carries_on_with_fewer_connections_when_a_server_limits_them() {
+    let h = Harness::new().await;
+    let data = test_data(4 * 1024 * 1024, 81);
+    // Like the Hetzner test server: only two downloads at a time per visitor, 429 for the rest.
+    h.server.state.add("limited.bin", FileSpec::new(data.clone()).etag("l1").max_connections(2).delay(Duration::from_millis(5)));
+    let id = h.add("/files/limited.bin", "limited.bin");
+
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    let log = h.server.state.requests_for("/files/limited.bin");
+    assert!(log.len() > 3, "extra connections were tried and refused: {}", log.len());
+}
+
 fn segments_cleared(h: &Harness, id: &str) -> bool {
     downloads::segments(&h.db.lock().unwrap(), id).unwrap().is_empty()
 }

@@ -47,6 +47,7 @@ export function DownloadWindow({ id }: { id: string }) {
   const [limitOn, setLimitOn] = useState(false);
   const [limit, setLimit] = useState("1024");
   const handledCompletion = useRef(false);
+  const lastSegments = useRef<Progress["segments"]>([]);
 
   const refresh = useCallback(async () => {
     const d = (await api.listDownloads()).find((x) => x.id === id) ?? null;
@@ -159,7 +160,10 @@ export function DownloadWindow({ id }: { id: string }) {
     );
   }
 
-  const segments = live?.segments ?? [];
+  // A paused or failed download keeps showing the ranges it last had.
+  const liveSegments = live?.segments ?? [];
+  if (liveSegments.length > 0) lastSegments.current = liveSegments;
+  const segments = liveSegments.length > 0 ? liveSegments : download.status === "completed" ? [] : lastSegments.current;
   const segTotal = total ?? segments.reduce((s, x) => Math.max(s, x.start + x.len), 0);
   const stage = live?.stage ?? (status === "queued" ? "Waiting for a free slot or its queue" : null);
 
@@ -359,7 +363,7 @@ export function DownloadWindow({ id }: { id: string }) {
                 <tr>
                   <td>1</td>
                   <td>{formatBytes(downloaded)}</td>
-                  <td className="muted">{download.kind === "media" ? "yt-dlp" : "single connection"}</td>
+                  <td className="muted">{download.kind === "media" ? "yt-dlp" : status === "downloading" ? "single connection" : "—"}</td>
                   <td>{status === "downloading" ? (stage ?? "Receiving data…") : STATUS_LABELS[status!]}</td>
                 </tr>
               )}
