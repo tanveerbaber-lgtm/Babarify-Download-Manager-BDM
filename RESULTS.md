@@ -536,3 +536,24 @@ With the installed test build and the reloaded extension:
   test was added, and `pause_resume_and_cancel_media` failed under full-suite load: the 616 KB clip finished before
   the pause took effect, so there was nothing to resume. The test server now sends that clip more slowly; the full
   suite passed twice (161 tests). Clippy clean.
+
+## M8 — Tray, Windows startup and copied-link offers (2026-10-26)
+
+- **Tray** (`desktop.rs`, Tauri `tray-icon`): left click opens BDM; the menu has Open BDM, Add Download… (opens the Add
+  dialog), Resume All, Pause All and Quit BDM. The tooltip updates every 2 s with the number of downloads moving and
+  their combined speed (from the engine's progress events).
+- **Close to tray** (on by default): closing the main window hides it; download windows close normally. The first
+  time each session a notification says BDM is still running. The main window now starts hidden and is shown in
+  setup, so "Start with Windows" launches (`--minimized`) stay in the tray; a second launch with that flag doesn't
+  pop the window up either.
+- **Start with Windows** (off by default): `HKCU\...\CurrentVersion\Run` value "Babarify Download Manager" =
+  `"<bdm.exe>" --minimized`, written when switched on and rewritten each launch; the setting isn't saved if the
+  registry can't be changed. The uninstaller deletes the value.
+- **Copied links** (on by default): a thread polls `GetClipboardSequenceNumber` every 0.7 s and reads the text only
+  when it changed. A single http(s) link (no spaces, no credentials, ≤ 2,048 characters) to one of the extension's
+  default file types, not already in the list and not just offered, opens a 360×96 always-on-top window above the
+  taskbar's corner for 12 s. Download sends it through the same path as a browser download (New Download dialog when
+  confirmation is on). The window has its own capability: read, accept or dismiss the offer, and listen for a newer one.
+- **Checks:** 164 Rust tests (3 new: which links are offered, tooltip and startup command, speed totals; settings
+  defaults and patch cover the new switches), Clippy and TypeScript clean. The offer window and the new Settings →
+  Windows section checked in the sample-data preview. Not yet checked in the installed app.

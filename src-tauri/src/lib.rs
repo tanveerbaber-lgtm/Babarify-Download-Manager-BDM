@@ -5,6 +5,7 @@ pub mod browser;
 mod commands;
 mod completion;
 mod cookies;
+mod desktop;
 mod db;
 mod engine;
 mod error;
@@ -44,6 +45,7 @@ struct TauriSink(AppHandle);
 impl EventSink for TauriSink {
     fn progress(&self, progress: &Progress) {
         let _ = self.0.emit(EVENT_PROGRESS, progress);
+        self.0.state::<desktop::Speeds>().record(&progress.id, progress.speed);
     }
 
     fn updated(&self, download: &Download) {
@@ -89,13 +91,7 @@ struct BrowserMedia {
     page_title: Option<String>,
 }
 
-fn show_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
+use desktop::show_main_window;
 
 fn confirm_browser_downloads(state: &AppState) -> bool {
     state
@@ -215,10 +211,26 @@ pub fn run() {
     tauri::Builder::default()
         // Must be first: a second launch (e.g. by the browser helper) just
         // focuses the running instance.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // A second "Start with Windows" launch leaves the running BDM in the tray.
+            if !args.iter().any(|a| a == desktop::AUTOSTART_ARG) {
+                show_main_window(app);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .manage(desktop::Speeds::default())
+        .manage(desktop::PendingOffer::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && desktop::close_to_tray(window.app_handle())
+            {
+                api.prevent_close();
+            }
+        })
         .setup(|app| {
             let paths = app.path();
             let data_dir = paths.app_data_dir()?;
@@ -268,9 +280,22 @@ pub fn run() {
 
             if let Some(main) = app.get_webview_window("main") {
                 title_bar::paint(&main);
+                // The window starts hidden; "Start with Windows" launches stay in the tray.
+                if !std::env::args().any(|a| a == desktop::AUTOSTART_ARG) {
+                    let _ = main.show();
+                }
+            }
+            if let Err(e) = desktop::create_tray(app.handle()) {
+                eprintln!("[bdm] couldn't create the tray icon: {e}");
+            }
+            let start_with_windows = db::settings::load(&*database.lock()?, &fallback_download_dir)?.start_with_windows;
+            // Re-written every launch so a moved or upgraded install keeps starting.
+            if start_with_windows && let Err(e) = desktop::set_start_with_windows(true) {
+                eprintln!("[bdm] couldn't update Windows startup: {e}");
             }
 
             app.manage(AppState { database, engine, tools, data_dir: data_dir.clone(), fallback_download_dir });
+            desktop::watch_clipboard(app.handle().clone());
 
             // Local endpoint for the browser helper. A fresh token each launch
             // means only processes that can read this user's AppData get in.
@@ -332,6 +357,9 @@ pub fn run() {
             commands::bulk_action,
             commands::open_download_window,
             commands::open_legal_document,
+            desktop::get_clipboard_offer,
+            desktop::accept_clipboard_offer,
+            desktop::dismiss_clipboard_offer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

@@ -36,6 +36,9 @@ const KEY_DUPLICATE_ACTION: &str = "duplicate_action";
 const KEY_ALLOW_LOCAL: &str = "allow_local_network";
 const KEY_CONFIRM_BROWSER: &str = "confirm_browser_downloads";
 const KEY_SHOW_WINDOW: &str = "show_download_window";
+const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
+const KEY_START_WITH_WINDOWS: &str = "start_with_windows";
+const KEY_OFFER_COPIED_LINKS: &str = "offer_copied_links";
 
 pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
 pub const MAX_RETRIES_LIMIT: u32 = 10;
@@ -70,6 +73,9 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         allow_local_network: read(conn, KEY_ALLOW_LOCAL)?.unwrap_or(false),
         confirm_browser_downloads: read(conn, KEY_CONFIRM_BROWSER)?.unwrap_or(true),
         show_download_window: read(conn, KEY_SHOW_WINDOW)?.unwrap_or(true),
+        close_to_tray: read(conn, KEY_CLOSE_TO_TRAY)?.unwrap_or(true),
+        start_with_windows: read(conn, KEY_START_WITH_WINDOWS)?.unwrap_or(false),
+        offer_copied_links: read(conn, KEY_OFFER_COPIED_LINKS)?.unwrap_or(true),
     })
 }
 
@@ -167,6 +173,15 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     if let Some(v) = patch.show_download_window {
         write(&tx, KEY_SHOW_WINDOW, &v)?;
     }
+    if let Some(v) = patch.close_to_tray {
+        write(&tx, KEY_CLOSE_TO_TRAY, &v)?;
+    }
+    if let Some(v) = patch.start_with_windows {
+        write(&tx, KEY_START_WITH_WINDOWS, &v)?;
+    }
+    if let Some(v) = patch.offer_copied_links {
+        write(&tx, KEY_OFFER_COPIED_LINKS, &v)?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -205,6 +220,8 @@ mod tests {
         assert_eq!(s.max_concurrent_downloads, 3);
         assert_eq!(s.segments_per_download, 8);
         assert!(s.confirm_before_remove);
+        assert!(s.close_to_tray && s.offer_copied_links);
+        assert!(!s.start_with_windows, "never added to Windows startup without asking");
     }
 
     #[test]
@@ -231,6 +248,9 @@ mod tests {
             allow_local_network: Some(true),
             confirm_browser_downloads: Some(false),
             show_download_window: Some(false),
+            close_to_tray: Some(false),
+            start_with_windows: Some(true),
+            offer_copied_links: Some(false),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();
@@ -242,6 +262,7 @@ mod tests {
         assert_eq!(s.duplicate_action, DuplicateAction::Skip);
         assert!(!s.sort_into_categories);
         assert!(!s.confirm_before_remove);
+        assert!(!s.close_to_tray && s.start_with_windows && !s.offer_copied_links);
         assert_ne!(s.default_download_dir, "unused");
     }
 

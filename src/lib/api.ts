@@ -2,24 +2,7 @@
 // Components call these instead of `invoke` directly.
 
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  AppError,
-  AppInfo,
-  BatchRequest,
-  BrowserStatus,
-  Category,
-  Download,
-  MediaInfo,
-  NewDownloadRequest,
-  NewMediaRequest,
-  Priority,
-  Queue,
-  QueueSchedule,
-  ToolKind,
-  ToolStatus,
-  Settings,
-  SettingsPatch,
-} from "./types";
+import type { AppError, AppInfo, BatchRequest, BrowserStatus, Category, ClipboardOffer, Download, MediaInfo, NewDownloadRequest, NewMediaRequest, Priority, Queue, QueueSchedule, Settings, SettingsPatch, ToolKind, ToolStatus } from "./types";
 
 function isAppError(value: unknown): value is AppError {
   return (
@@ -93,6 +76,9 @@ export const api = {
   fileSha256: (id: string) => call<string>("file_sha256", { id }),
   openDownloadWindow: (id: string) => call<void>("open_download_window", { id }),
   openLegalDocument: (document: "license" | "privacy" | "notices") => call<void>("open_legal_document", { document }),
+  getClipboardOffer: () => call<ClipboardOffer | null>("get_clipboard_offer"),
+  acceptClipboardOffer: () => call<void>("accept_clipboard_offer"),
+  dismissClipboardOffer: () => call<void>("dismiss_clipboard_offer"),
 };
 
 /** Event names emitted by the Rust engine (`src-tauri/src/engine/events.rs`). */
@@ -105,4 +91,6 @@ export const EVENTS = {
   browserMedia: "browser:media",
   queuesChanged: "queues:changed",
   browserConfirm: "browser:confirm",
+  addDownload: "app:add-download",
+  offerChanged: "offer:changed",
 } as const;

@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "offer",
+  "description": "The small \"Download with BDM?\" window shown when a download link is copied: it may only read the offered link, accept it or dismiss it, and listen for a newer link.",
+  "windows": [
+    "clipboard-offer"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-get-clipboard-offer",
+    "allow-accept-clipboard-offer",
+    "allow-dismiss-clipboard-offer"
+  ]
+}

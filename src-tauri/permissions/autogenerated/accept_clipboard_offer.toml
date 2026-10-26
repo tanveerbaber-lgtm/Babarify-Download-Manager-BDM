@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-accept-clipboard-offer"
+description = "Enables the accept_clipboard_offer command without any pre-configured scope."
+commands.allow = ["accept_clipboard_offer"]
+
+[[permission]]
+identifier = "deny-accept-clipboard-offer"
+description = "Denies the accept_clipboard_offer command without any pre-configured scope."
+commands.deny = ["accept_clipboard_offer"]

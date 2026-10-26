@@ -166,6 +166,31 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
       </section>
 
       <section className="card">
+        <h2>Windows</h2>
+        <SwitchSetting
+          id="close-to-tray"
+          title="Keep running in the tray when closed"
+          desc="Closing the window leaves BDM in the notification area, so downloads and schedules keep going. Right-click the tray icon to quit."
+          checked={settings.closeToTray}
+          onChange={(v) => save({ closeToTray: v })}
+        />
+        <SwitchSetting
+          id="start-with-windows"
+          title="Start with Windows"
+          desc="Starts BDM in the tray when you sign in, so queues and schedules run without opening it."
+          checked={settings.startWithWindows}
+          onChange={(v) => save({ startWithWindows: v })}
+        />
+        <SwitchSetting
+          id="offer-copied-links"
+          title="Offer to download copied links"
+          desc="When you copy a link to a file (ZIP, EXE, MP4, PDF…), a small window asks whether BDM should download it. The clipboard never leaves your PC."
+          checked={settings.offerCopiedLinks}
+          onChange={(v) => save({ offerCopiedLinks: v })}
+        />
+      </section>
+
+      <section className="card">
         <h2>Downloads</h2>
         <div className="setting-row">
           <div>

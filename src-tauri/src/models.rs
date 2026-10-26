@@ -288,6 +288,12 @@ pub struct Settings {
     pub confirm_browser_downloads: bool,
     /// Open a download's own window when it starts from that dialog.
     pub show_download_window: bool,
+    /// Closing the main window keeps BDM running in the tray.
+    pub close_to_tray: bool,
+    /// Start BDM (in the tray) when signing in to Windows.
+    pub start_with_windows: bool,
+    /// Offer to download links to files when they're copied.
+    pub offer_copied_links: bool,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -313,6 +319,9 @@ pub struct SettingsPatch {
     pub allow_local_network: Option<bool>,
     pub confirm_browser_downloads: Option<bool>,
     pub show_download_window: Option<bool>,
+    pub close_to_tray: Option<bool>,
+    pub start_with_windows: Option<bool>,
+    pub offer_copied_links: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

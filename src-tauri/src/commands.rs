@@ -265,6 +265,10 @@ pub async fn update_settings(
     patch: SettingsPatch,
     state: State<'_, AppState>,
 ) -> AppResult<Settings> {
+    // Windows startup first: if it can't be changed, the setting isn't saved either.
+    if let Some(on) = patch.start_with_windows {
+        crate::desktop::set_start_with_windows(on)?;
+    }
     let updated = {
         let mut conn = state.db()?;
         settings::apply_patch(&mut conn, &patch)?;

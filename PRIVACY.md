@@ -40,6 +40,9 @@ BDM doesn't send your download list, settings or any identifier to Babarify or a
   never saves them to disk except as a temporary file handed to yt-dlp and deleted when it finishes, forgets them
   after 12 hours or when it closes, and sends each cookie only to the site it belongs to. Removing the site in the
   options stops this and withdraws the permission.
+- **Copied links (BDM app):** with "Offer to download copied links" on (Settings → Windows), BDM checks the
+  clipboard when it changes. Only a single link to a file type it downloads is offered; nothing is stored, logged or
+  sent anywhere, and the link goes to BDM's download list only if you click Download.
 - **Video detection** also notes, for each video a page loads, the request headers the browser sent that describe
   the request (User-Agent, Referer, Origin, Accept, Accept-Language and the page's own `X-` headers; never cookies
   or Authorization). They stay in the browser's memory for that tab and go to BDM only with that video when you

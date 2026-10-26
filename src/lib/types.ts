@@ -166,6 +166,19 @@ export interface Settings {
   confirmBrowserDownloads: boolean;
   /** Open a download's own window when it starts from the dialog. */
   showDownloadWindow: boolean;
+  /** Closing the main window keeps BDM running in the tray. */
+  closeToTray: boolean;
+  /** Start BDM in the tray when signing in to Windows. */
+  startWithWindows: boolean;
+  /** Offer to download links to files when they're copied. */
+  offerCopiedLinks: boolean;
+}
+
+/** The copied link shown in the "Download with BDM?" window. */
+export interface ClipboardOffer {
+  url: string;
+  fileName: string;
+  host: string;
 }
 
 export type SettingsPatch = Partial<Settings>;

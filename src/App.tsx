@@ -57,6 +57,11 @@ export default function App() {
     const stops = [
       listen<Download>(EVENTS.browserAdded, ({ payload }) => notify(`Added from your browser: ${payload.fileName}`)),
       listen<BrowserProposal>(EVENTS.browserConfirm, ({ payload }) => setProposals((p) => [...p, payload])),
+      // "Add Download…" in the tray menu.
+      listen(EVENTS.addDownload, () => {
+        setView("all");
+        openAdd("file");
+      }),
       listen<BrowserMedia>(EVENTS.browserMedia, ({ payload }) => {
         setView("all");
         setAddOpen(false);

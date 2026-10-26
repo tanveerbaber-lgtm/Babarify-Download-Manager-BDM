@@ -3069,3 +3069,61 @@ body,
   font-weight: var(--weight-title);
 }
 
+
+/* ---------- "Download with BDM?" copied-link offer ----------
+   A borderless, always-on-top 360x96 window in the screen corner. */
+
+.offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100vh;
+  padding: 10px 10px 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--sidebar);
+  overflow: hidden;
+  user-select: none;
+}
+
+.offer-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.offer-title {
+  font-size: var(--text-title);
+  font-weight: var(--weight-title);
+}
+
+.offer-name,
+.offer-host,
+.offer-error {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offer-name {
+  font-size: var(--text-body);
+}
+
+.offer-host {
+  font-size: var(--text-caption);
+  color: var(--text-3);
+}
+
+.offer-error {
+  font-size: var(--text-caption);
+  color: var(--danger);
+}
+
+.offer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
