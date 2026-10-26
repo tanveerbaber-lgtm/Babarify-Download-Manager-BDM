@@ -609,3 +609,21 @@ With the installed test build and the reloaded extension:
   showed "scanning" first; no scan when the setting is off). The real Defender on this PC scanned a downloaded MP4:
   exit code 0, "found no threats", 117 ms. Clippy and TypeScript clean; the list checked in the sample-data
   preview. A real threat wasn't tried (no test malware was written to this PC).
+
+## M8 — Subtitles, chapters and cover art for video downloads (2026-10-26)
+
+- **Settings → Video Downloads:** Add chapters (on), Add the thumbnail as cover art (on), Add subtitles (off) with
+  languages (default "en") and "Use automatic captions too" (on). They apply to every video and audio download,
+  including ones from the browser panel; subtitles only to video.
+- **yt-dlp flags** (`media/args.rs`): `--embed-chapters`, `--embed-thumbnail`, and `--write-subs [--write-auto-subs]
+  --sub-langs <codes> --embed-subs`. Languages are exact codes (checked: letters, digits, `-_.*`, at most 10); yt-dlp
+  matches patterns ignoring case, so a pattern like `en.*` (or `en-[A-Z]+`) also requested 10 machine-translated
+  tracks (en-bn, en-de, …) on a real YouTube video.
+- **Subtitle refusals:** on that video YouTube answered HTTP 429 for one of those tracks and yt-dlp failed the whole
+  download. If a run with subtitles fails with an ERROR line about subtitles, BDM runs it once more without them.
+- **Real check** (YouTube, *Sprite Fright*, Blender, CC-BY, 144p): with exact codes yt-dlp requested only `en`;
+  exit 0, 14.9 MB MP4 with H.264, AAC, an English `mov_text` subtitle track, the thumbnail as attached picture and
+  7 chapters (ffprobe).
+- **Checks:** 178 Rust tests (new: extras flags, language parsing, recognising subtitle failures, settings
+  validation; the existing real-tool media tests now run with chapters and cover art on). Clippy and TypeScript
+  clean; the settings card checked in the sample-data preview.

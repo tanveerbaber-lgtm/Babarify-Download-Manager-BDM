@@ -298,6 +298,16 @@ pub struct Settings {
     pub offer_copied_links: bool,
     /// Scan finished downloads with Microsoft Defender.
     pub scan_downloads: bool,
+    /// Video downloads: chapter markers in the file.
+    pub embed_chapters: bool,
+    /// Video and audio downloads: the thumbnail as cover art.
+    pub embed_thumbnail: bool,
+    /// Video downloads: subtitles in the chosen languages, embedded.
+    pub download_subtitles: bool,
+    /// e.g. "en, ur".
+    pub subtitle_languages: String,
+    /// Use automatic captions when a language has no real subtitles.
+    pub automatic_subtitles: bool,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -327,6 +337,11 @@ pub struct SettingsPatch {
     pub start_with_windows: Option<bool>,
     pub offer_copied_links: Option<bool>,
     pub scan_downloads: Option<bool>,
+    pub embed_chapters: Option<bool>,
+    pub embed_thumbnail: Option<bool>,
+    pub download_subtitles: Option<bool>,
+    pub subtitle_languages: Option<String>,
+    pub automatic_subtitles: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

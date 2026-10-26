@@ -179,6 +179,16 @@ export interface Settings {
   offerCopiedLinks: boolean;
   /** Scan finished downloads with Microsoft Defender. */
   scanDownloads: boolean;
+  /** Video downloads: chapter markers in the file. */
+  embedChapters: boolean;
+  /** Video and audio downloads: the thumbnail as cover art. */
+  embedThumbnail: boolean;
+  /** Video downloads: subtitles in `subtitleLanguages`, embedded. */
+  downloadSubtitles: boolean;
+  /** e.g. "en, ur". */
+  subtitleLanguages: string;
+  /** Use automatic captions when a language has no real subtitles. */
+  automaticSubtitles: boolean;
 }
 
 /** The copied link shown in the "Download with BDM?" window. */

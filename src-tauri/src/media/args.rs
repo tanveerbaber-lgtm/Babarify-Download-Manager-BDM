@@ -135,6 +135,91 @@ pub fn download_args(
     args
 }
 
+/// What's added to video downloads besides the video itself (Settings →
+/// Video Downloads).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MediaExtras {
+    pub chapters: bool,
+    /// The video's thumbnail as cover art.
+    pub thumbnail: bool,
+    pub subtitles: Option<SubtitleChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubtitleChoice {
+    /// yt-dlp language patterns, e.g. ["en.*", "ur.*"].
+    pub languages: Vec<String>,
+    /// Also the site's automatic captions (YouTube's auto-generated ones).
+    pub automatic: bool,
+}
+
+impl MediaExtras {
+    pub fn from_settings(s: &crate::models::Settings) -> Self {
+        Self {
+            chapters: s.embed_chapters,
+            thumbnail: s.embed_thumbnail,
+            subtitles: s.download_subtitles.then(|| SubtitleChoice {
+                languages: parse_languages(&s.subtitle_languages).unwrap_or_else(|_| vec!["en".into()]),
+                automatic: s.automatic_subtitles,
+            }),
+        }
+    }
+
+    pub fn without_subtitles(&self) -> Self {
+        Self { subtitles: None, ..self.clone() }
+    }
+}
+
+/// "en, ur" → ["en", "ur"]: exact codes. yt-dlp matches patterns ignoring
+/// case, so anything wider (like "en.*") also picks up the machine
+/// translations sites list as en-bn, en-de… (dozens of tracks, which get
+/// rate-limited). Regional variants are named outright (en-GB, pt-BR);
+/// "all" and patterns with "*" are kept as written.
+pub fn parse_languages(text: &str) -> Result<Vec<String>, String> {
+    let codes: Vec<&str> = text.split([',', ' ', ';']).map(str::trim).filter(|c| !c.is_empty()).collect();
+    if codes.is_empty() {
+        return Err("Enter at least one subtitle language, e.g. en.".into());
+    }
+    if codes.len() > 10 {
+        return Err("Choose at most 10 subtitle languages.".into());
+    }
+    let patterns: Vec<String> = codes
+        .iter()
+        .map(|c| {
+            let ok = c.len() <= 20
+                && c.chars().next().is_some_and(|ch| ch.is_ascii_alphanumeric())
+                && c.chars().all(|ch| ch.is_ascii_alphanumeric() || "-_.*".contains(ch));
+            if !ok {
+                return Err(format!("\"{c}\" isn't a language code (use codes like en, ur, hi or pt-BR)."));
+            }
+            Ok((*c).to_string())
+        })
+        .collect::<Result<_, String>>()?;
+    Ok(patterns)
+}
+
+/// yt-dlp flags for the extras. Subtitles only go with video.
+pub fn extras_args(options: &MediaOptions, extras: &MediaExtras) -> Vec<String> {
+    let s = |v: &str| v.to_string();
+    let mut args = Vec::new();
+    if extras.chapters {
+        args.push(s("--embed-chapters"));
+    }
+    if extras.thumbnail {
+        args.push(s("--embed-thumbnail"));
+    }
+    if let Some(subs) = &extras.subtitles
+        && !matches!(options, MediaOptions::Audio { .. })
+    {
+        args.push(s("--write-subs"));
+        if subs.automatic {
+            args.push(s("--write-auto-subs"));
+        }
+        args.extend([s("--sub-langs"), subs.languages.join(","), s("--embed-subs")]);
+    }
+    args
+}
+
 /// Speed limit (bytes/s) and retry counts for yt-dlp.
 pub fn limit_args(rate: Option<u64>, retries: u32) -> Vec<String> {
     let mut args = vec!["-R".to_string(), retries.to_string(), "--fragment-retries".into(), retries.to_string()];
@@ -192,6 +277,33 @@ mod tests {
             ["--add-header", "Referer:https://site.com/watch?v=1", "--add-header", "Origin:https://site.com"]
         );
         assert_eq!(request_args(Some("https://site.com/p"), "https://cdn.net/v", &[]), ["--referer", "https://site.com/"]);
+    }
+
+    #[test]
+    fn extras_become_flags() {
+        let video = MediaOptions::Video { max_height: Some(720), container: Container::Mp4 };
+        let all = MediaExtras {
+            chapters: true,
+            thumbnail: true,
+            subtitles: Some(SubtitleChoice { languages: vec!["en".into(), "ur".into()], automatic: true }),
+        };
+        assert_eq!(
+            extras_args(&video, &all),
+            ["--embed-chapters", "--embed-thumbnail", "--write-subs", "--write-auto-subs", "--sub-langs", "en,ur", "--embed-subs"]
+        );
+        let audio = MediaOptions::Audio { format: AudioFormat::Mp3 };
+        assert_eq!(extras_args(&audio, &all), ["--embed-chapters", "--embed-thumbnail"], "no subtitles in audio files");
+        assert!(extras_args(&video, &MediaExtras::default()).is_empty());
+        assert_eq!(all.without_subtitles().subtitles, None);
+    }
+
+    #[test]
+    fn subtitle_languages_are_checked() {
+        assert_eq!(parse_languages("en, ur").unwrap(), ["en", "ur"]);
+        assert_eq!(parse_languages("pt-BR all en.*").unwrap(), ["pt-BR", "all", "en.*"]);
+        assert!(parse_languages("  ").is_err());
+        assert!(parse_languages("en --exec calc").is_err(), "no flags");
+        assert!(parse_languages("e n,a,b,c,d,f,g,h,i,j,k").is_err(), "too many");
     }
 
     #[test]

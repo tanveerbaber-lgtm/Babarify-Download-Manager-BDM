@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: virus scan after download done (Microsoft Defender; Scanning…, shield when clean, Threat Found with a notification). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: subtitles, chapters and cover art for video downloads done (checked on a real YouTube video). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 3 | 1 | 7 | In progress |
-| **Total** | **69** | **10** | **82** | |
+| M8 — BDM 1.1 Everyday power | 4 | 1 | 7 | In progress |
+| **Total** | **70** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -293,6 +293,10 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] A threat always gets a notification; Defender quarantines or removes the file itself
   - [x] Skipped quietly when Defender isn't available (another antivirus); Settings → Security switch, on by default
   - [x] Tests with a stand-in scanner (clean, threat, off); real Defender on this PC: exit 0, "found no threats", 0.1 s
-- [ ] Subtitles, chapters and thumbnails for video downloads.
+- [x] Subtitles, chapters and thumbnails for video downloads.
+  - [x] Settings → Video Downloads: chapters and cover art (on by default), subtitles (off) with languages and automatic captions
+  - [x] Exact language codes (en, ur, pt-BR); wider patterns also took dozens of machine translations and got rate-limited
+  - [x] When the site refuses the subtitles (HTTP 429), the video downloads again without them
+  - [x] Real YouTube check (Sprite Fright, CC-BY): MP4 with an English subtitle track, cover art and 7 chapters
 - [ ] Command line and `bdm://` links.
 - [ ] Disk-space guard: warn before starting, pause before the drive is full.

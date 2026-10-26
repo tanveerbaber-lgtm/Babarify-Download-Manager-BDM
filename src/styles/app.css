@@ -3150,3 +3150,16 @@ body,
   color: var(--danger);
   font-weight: var(--weight-title);
 }
+
+/* Short text settings (e.g. subtitle languages) */
+.text-setting {
+  width: 160px;
+  flex: none;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-body);
+}

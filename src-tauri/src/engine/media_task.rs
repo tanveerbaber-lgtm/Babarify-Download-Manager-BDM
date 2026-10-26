@@ -32,7 +32,18 @@ pub(super) fn temp_dir_for(dest_dir: &Path, id: &str) -> PathBuf {
 }
 
 pub(super) async fn run(ctx: &TaskContext, id: &str) -> EngineResult<()> {
-    let result = run_inner(ctx, id).await;
+    let extras = {
+        let conn = ctx.db.lock()?;
+        args::MediaExtras::from_settings(&crate::db::settings::load(&conn, "")?)
+    };
+    let mut subtitles_failed = false;
+    let mut result = run_inner(ctx, id, &extras, &mut subtitles_failed).await;
+    // Sites often refuse subtitle downloads (YouTube rate-limits them); the
+    // video still matters more, so try once more without them.
+    if result.is_err() && subtitles_failed {
+        eprintln!("[bdm] subtitles failed for {id}; downloading without them");
+        result = run_inner(ctx, id, &extras.without_subtitles(), &mut subtitles_failed).await;
+    }
     if let Err(e) = &result
         && !matches!(e, EngineError::Stopped)
     {
@@ -69,7 +80,9 @@ fn forward_lines<R: AsyncRead + Unpin + Send + 'static>(reader: R, pipe: fn() ->
     });
 }
 
-async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
+/// One yt-dlp run. Sets `subtitles_failed` when it failed over subtitles.
+async fn run_inner(ctx: &TaskContext, id: &str, extras: &args::MediaExtras, subtitles_failed: &mut bool) -> EngineResult<()> {
+    *subtitles_failed = false;
     let download = {
         let conn = ctx.db.lock()?;
         downloads::set_status(&conn, id, DownloadStatus::Downloading, None)?;
@@ -112,9 +125,11 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         &ctx.headers.for_url(&download.url),
         &download.url,
     );
-    // Limits go before the "--" that ends the options.
+    // Limits and extras go before the "--" that ends the options.
     let at = argv.len() - 2;
     argv.splice(at..at, args::limit_args(ctx.limits.effective(), ctx.max_retries));
+    let at = argv.len() - 2;
+    argv.splice(at..at, args::extras_args(&options, extras));
     // Deleted when this function returns, after yt-dlp has exited.
     let cookies = ctx.cookies.file_for(&download.url)?;
     if let Some(file) = &cookies {
@@ -195,6 +210,7 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         return Err(EngineError::Stopped);
     }
     if !status.success() {
+        *subtitles_failed = extras.subtitles.is_some() && mentions_subtitles(&stderr_tail);
         return Err(EngineError::Media(friendly_error(&stderr_tail)));
     }
 
@@ -224,6 +240,11 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     };
     ctx.sink.updated(&updated);
     Ok(())
+}
+
+/// Whether yt-dlp's error was about subtitles (e.g. "Unable to download video subtitles for 'en': HTTP Error 429").
+fn mentions_subtitles(stderr: &[String]) -> bool {
+    stderr.iter().any(|l| l.contains("ERROR") && l.to_ascii_lowercase().contains("subtitle"))
 }
 
 /// The saved file's name: the one chosen in BDM, with the extension of the
@@ -403,6 +424,13 @@ mod tests {
         std::fs::write(dir.path().join("a.f140.m4a.ytdl"), b"x").unwrap();
         std::fs::write(dir.path().join("a.mp4"), b"x").unwrap();
         assert_eq!(newest_file(dir.path()).unwrap().file_name().unwrap(), "a.mp4");
+    }
+
+    #[test]
+    fn recognises_subtitle_failures() {
+        let lines = |s: &[&str]| s.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        assert!(mentions_subtitles(&lines(&["ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests"])));
+        assert!(!mentions_subtitles(&lines(&["WARNING: no subtitles for 'ur'", "ERROR: [youtube] x: Video unavailable"])));
     }
 
     #[test]

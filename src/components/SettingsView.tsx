@@ -268,6 +268,49 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
       </section>
 
       <section className="card">
+        <h2>Video Downloads</h2>
+        <SwitchSetting
+          id="embed-chapters"
+          title="Add chapters"
+          desc="Keeps the video's chapter markers in the file, so players can jump between parts."
+          checked={settings.embedChapters}
+          onChange={(v) => save({ embedChapters: v })}
+        />
+        <SwitchSetting
+          id="embed-thumbnail"
+          title="Add the thumbnail as cover art"
+          desc="Shown by Windows and media players for videos and audio files."
+          checked={settings.embedThumbnail}
+          onChange={(v) => save({ embedThumbnail: v })}
+        />
+        <SwitchSetting
+          id="download-subtitles"
+          title="Add subtitles"
+          desc="Embeds subtitles in the languages below when the site has them. If a site refuses the subtitles, the video downloads without them."
+          checked={settings.downloadSubtitles}
+          onChange={(v) => save({ downloadSubtitles: v })}
+        />
+        {settings.downloadSubtitles && (
+          <>
+            <TextSetting
+              id="subtitle-languages"
+              title="Subtitle languages"
+              desc="Language codes separated by commas, e.g. en, ur, hi or pt-BR. (all also takes every machine translation, which sites often refuse.)"
+              value={settings.subtitleLanguages}
+              onCommit={(v) => save({ subtitleLanguages: v })}
+            />
+            <SwitchSetting
+              id="automatic-subtitles"
+              title="Use automatic captions too"
+              desc="Includes captions the site generated (such as YouTube's) where there are no real subtitles."
+              checked={settings.automaticSubtitles}
+              onChange={(v) => save({ automaticSubtitles: v })}
+            />
+          </>
+        )}
+      </section>
+
+      <section className="card">
         <h2>Speed and Retries</h2>
         <NumberSetting
           id="speed-limit"
@@ -411,6 +454,32 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** A short text setting, saved when it loses focus or Enter is pressed. */
+function TextSetting({ id, title, desc, value, onCommit }: { id: string; title: string; desc: string; value: string; onCommit: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const commit = () => {
+    if (draft.trim() !== value) onCommit(draft.trim());
+  };
+  return (
+    <div className="setting-row">
+      <label htmlFor={id}>
+        <div className="setting-title">{title}</div>
+        <div className="setting-desc">{desc}</div>
+      </label>
+      <input
+        id={id}
+        className="text-setting"
+        type="text"
+        value={draft}
+        spellCheck={false}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && commit()}
+      />
     </div>
   );
 }

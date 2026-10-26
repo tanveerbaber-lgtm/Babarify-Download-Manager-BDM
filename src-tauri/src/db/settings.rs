@@ -40,6 +40,11 @@ const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
 const KEY_START_WITH_WINDOWS: &str = "start_with_windows";
 const KEY_OFFER_COPIED_LINKS: &str = "offer_copied_links";
 const KEY_SCAN_DOWNLOADS: &str = "scan_downloads";
+const KEY_EMBED_CHAPTERS: &str = "embed_chapters";
+const KEY_EMBED_THUMBNAIL: &str = "embed_thumbnail";
+const KEY_SUBTITLES: &str = "download_subtitles";
+const KEY_SUBTITLE_LANGUAGES: &str = "subtitle_languages";
+const KEY_AUTO_SUBTITLES: &str = "automatic_subtitles";
 
 pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
 pub const MAX_RETRIES_LIMIT: u32 = 10;
@@ -78,6 +83,13 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         start_with_windows: read(conn, KEY_START_WITH_WINDOWS)?.unwrap_or(false),
         offer_copied_links: read(conn, KEY_OFFER_COPIED_LINKS)?.unwrap_or(true),
         scan_downloads: read(conn, KEY_SCAN_DOWNLOADS)?.unwrap_or(true),
+        embed_chapters: read(conn, KEY_EMBED_CHAPTERS)?.unwrap_or(true),
+        embed_thumbnail: read(conn, KEY_EMBED_THUMBNAIL)?.unwrap_or(true),
+        download_subtitles: read(conn, KEY_SUBTITLES)?.unwrap_or(false),
+        subtitle_languages: read::<String>(conn, KEY_SUBTITLE_LANGUAGES)?
+            .filter(|l| crate::media::args::parse_languages(l).is_ok())
+            .unwrap_or_else(|| "en".into()),
+        automatic_subtitles: read(conn, KEY_AUTO_SUBTITLES)?.unwrap_or(true),
     })
 }
 
@@ -116,6 +128,9 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     range(patch.max_retries, 0, MAX_RETRIES_LIMIT, "Retries")?;
     range(patch.auto_retry_count, 0, MAX_RETRIES_LIMIT, "Automatic retries")?;
     range(patch.auto_retry_delay_minutes, 1, MAX_AUTO_RETRY_DELAY, "The retry delay")?;
+    if let Some(langs) = &patch.subtitle_languages {
+        crate::media::args::parse_languages(langs).map_err(AppError::Validation)?;
+    }
 
     let tx = conn.transaction()?;
     if let Some(theme) = patch.theme {
@@ -187,6 +202,21 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     if let Some(v) = patch.scan_downloads {
         write(&tx, KEY_SCAN_DOWNLOADS, &v)?;
     }
+    if let Some(v) = patch.embed_chapters {
+        write(&tx, KEY_EMBED_CHAPTERS, &v)?;
+    }
+    if let Some(v) = patch.embed_thumbnail {
+        write(&tx, KEY_EMBED_THUMBNAIL, &v)?;
+    }
+    if let Some(v) = patch.download_subtitles {
+        write(&tx, KEY_SUBTITLES, &v)?;
+    }
+    if let Some(v) = &patch.subtitle_languages {
+        write(&tx, KEY_SUBTITLE_LANGUAGES, &v.trim())?;
+    }
+    if let Some(v) = patch.automatic_subtitles {
+        write(&tx, KEY_AUTO_SUBTITLES, &v)?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -228,6 +258,8 @@ mod tests {
         assert!(s.close_to_tray && s.offer_copied_links);
         assert!(!s.start_with_windows, "never added to Windows startup without asking");
         assert!(s.scan_downloads);
+        assert!(s.embed_chapters && s.embed_thumbnail && !s.download_subtitles, "subtitles are opt-in");
+        assert_eq!(s.subtitle_languages, "en");
     }
 
     #[test]
@@ -258,6 +290,11 @@ mod tests {
             start_with_windows: Some(true),
             offer_copied_links: Some(false),
             scan_downloads: Some(false),
+            embed_chapters: Some(false),
+            embed_thumbnail: Some(false),
+            download_subtitles: Some(true),
+            subtitle_languages: Some("ur, en".into()),
+            automatic_subtitles: Some(false),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();
@@ -270,6 +307,9 @@ mod tests {
         assert!(!s.sort_into_categories);
         assert!(!s.confirm_before_remove);
         assert!(!s.close_to_tray && s.start_with_windows && !s.offer_copied_links);
+        assert!(s.download_subtitles && !s.embed_chapters && s.subtitle_languages == "ur, en");
+        let bad = SettingsPatch { subtitle_languages: Some("en --exec x".into()), ..Default::default() };
+        assert!(apply_patch(&mut conn, &bad).is_err());
         assert_ne!(s.default_download_dir, "unused");
     }
 
