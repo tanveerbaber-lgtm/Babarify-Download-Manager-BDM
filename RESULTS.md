@@ -574,3 +574,20 @@ With the installed test build and the reloaded extension:
   identical bytes; and a download paused after splits, restarted with a new engine and resumed, byte-exact. The
   test server now counts bytes actually sent, which resume tests use instead of the Range headers (a split
   connection stops before the end it asked for). Clippy clean. Not yet checked against real servers in the app.
+
+## M8 — Refresh expired links (2026-10-26)
+
+- **Engine** (`Engine::refresh_link`): for an unfinished file download that isn't running, BDM probes the new link
+  (network guard, referrer and allowed sign-in cookies as usual) and accepts it only if it's the same file: the same
+  size when the size is known, the same strong ETag when both have one, and a server that can resume when there's
+  progress. Then the link, final address, size, ETag and Last-Modified are replaced, the error is cleared and a
+  failed download becomes paused; segments and the partial file are kept. Video and audio downloads are refused
+  with an explanation (yt-dlp fetches fresh addresses on every resume).
+- **App:** right-click → **Refresh Download Link…** (file downloads that aren't finished, running or queued) opens a
+  dialog to paste the new link, with "Resume right away". The **New Download** dialog shows "Continue It" when a
+  browser download has the same name and size as a paused or failed download with progress, so a fresh link from
+  the site continues the old download instead of starting a second copy.
+- **Checks:** 171 Rust tests (2 new engine tests: a paused 4 MiB download continued from a new address is
+  byte-exact, the old address isn't used again and only the missing part comes from the new one; a different size,
+  a different ETag and a running download are refused and leave the link unchanged). Clippy and TypeScript clean.
+  Both dialogs checked in the sample-data preview. Not yet tried in the installed app.

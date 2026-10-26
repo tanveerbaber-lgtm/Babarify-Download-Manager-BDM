@@ -44,6 +44,7 @@ const COMMANDS: &[&str] = &[
     "bulk_action",
     "open_download_window",
     "open_legal_document",
+    "refresh_download_link",
     "get_clipboard_offer",
     "accept_clipboard_offer",
     "dismiss_clipboard_offer",

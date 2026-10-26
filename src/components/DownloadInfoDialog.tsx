@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
-import { FileArchive, FileAudio, FileText, FileVideo, File, FolderOpen, History, Package, X, type LucideIcon } from "lucide-react";
+import { FileArchive, FileAudio, FileText, FileVideo, File, FolderOpen, History, Package, RefreshCw, X, type LucideIcon } from "lucide-react";
 import { Modal } from "./Modal";
 import { api } from "../lib/api";
 import { formatBytes, formatDate } from "../lib/format";
@@ -104,6 +104,19 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
     void submit(true);
   }
 
+  /** Continue the matching unfinished download with this link instead of starting over. */
+  async function continueCandidate(candidate: Download) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.refreshDownloadLink(candidate.id, proposal.url, true);
+      onClose();
+    } catch (err) {
+      setError((err as AppError).message);
+      setBusy(false);
+    }
+  }
+
   const categoryName = category?.name ?? "Other";
   return (
     <form onSubmit={onSubmit} noValidate>
@@ -137,6 +150,19 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
               Already in your list ({proposal.duplicate.status === "completed" ? `downloaded ${formatDate(proposal.duplicate.completedAt ?? proposal.duplicate.createdAt)}` : proposal.duplicate.status}). Downloading again saves a new copy.
             </span>
           </p>
+        )}
+
+        {proposal.resumeCandidate && (
+          <div className="notice resume">
+            <RefreshCw size={15} aria-hidden />
+            <span>
+              Looks like your unfinished download of this file ({resumeProgress(proposal.resumeCandidate)}). Continue it with this new link
+              instead of starting again?
+            </span>
+            <button type="button" className="button small" disabled={busy} onClick={() => continueCandidate(proposal.resumeCandidate as Download)}>
+              Continue It
+            </button>
+          </div>
         )}
 
         <label className="field">
@@ -216,6 +242,11 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
       </footer>
     </form>
   );
+}
+
+function resumeProgress(d: Download): string {
+  const pct = d.totalBytes ? Math.floor((d.downloadedBytes / d.totalBytes) * 100) : null;
+  return pct === null ? `${formatBytes(d.downloadedBytes)} so far` : `${pct}% of ${formatBytes(d.totalBytes ?? 0)}`;
 }
 
 function hostOf(url: string): string {

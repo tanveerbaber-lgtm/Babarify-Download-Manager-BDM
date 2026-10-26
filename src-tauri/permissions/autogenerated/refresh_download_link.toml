@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-refresh-download-link"
+description = "Enables the refresh_download_link command without any pre-configured scope."
+commands.allow = ["refresh_download_link"]
+
+[[permission]]
+identifier = "deny-refresh-download-link"
+description = "Denies the refresh_download_link command without any pre-configured scope."
+commands.deny = ["refresh_download_link"]

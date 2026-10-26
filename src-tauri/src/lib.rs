@@ -357,6 +357,7 @@ pub fn run() {
             commands::bulk_action,
             commands::open_download_window,
             commands::open_legal_document,
+            commands::refresh_download_link,
             desktop::get_clipboard_offer,
             desktop::accept_clipboard_offer,
             desktop::dismiss_clipboard_offer,

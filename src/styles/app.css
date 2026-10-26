@@ -1557,6 +1557,23 @@ code {
   margin-top: 1px;
 }
 
+.notice.resume {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--info-soft);
+  color: var(--brand-strong);
+}
+
+.notice.resume svg {
+  flex: none;
+}
+
+.notice.resume .button {
+  flex: none;
+  margin-left: auto;
+}
+
 /* Settings: categories */
 .category-list {
   display: flex;

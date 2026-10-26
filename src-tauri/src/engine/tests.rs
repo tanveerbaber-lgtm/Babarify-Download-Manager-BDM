@@ -325,6 +325,56 @@ async fn split_ranges_survive_pause_and_restart() {
     assert_eq!(read(&d.saved_path), data, "every byte right after resuming a split layout");
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn refreshed_link_continues_where_the_old_one_stopped() {
+    let h = Harness::new().await;
+    let total = 4 * 1024 * 1024;
+    let data = test_data(total, 51);
+    h.server.state.add("expiring.bin", FileSpec::new(data.clone()).etag("e1").delay(Duration::from_millis(30)));
+    let id = h.add("/files/expiring.bin", "expiring.bin");
+    h.wait_partial(&id).await;
+    h.engine.pause(&id).unwrap();
+    let paused = h.wait_status(&id, DownloadStatus::Paused).await;
+
+    // The same file at a fresh address (a new signed link, another mirror).
+    h.server.state.add("fresh.bin", FileSpec::new(data.clone()).etag("e1"));
+    h.server.state.clear_log();
+    let fresh = h.server.url("/files/fresh.bin");
+    let refreshed = h.engine.refresh_link(&id, &fresh).await.unwrap();
+    assert_eq!(refreshed.url, fresh);
+    assert_eq!(refreshed.downloaded_bytes, paused.downloaded_bytes, "progress kept");
+
+    h.engine.enqueue(&id).unwrap();
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    assert!(h.server.state.requests_for("/files/expiring.bin").is_empty(), "the old link isn't used again");
+    let fetched = bytes_sent(&h.server.state.requests_for("/files/fresh.bin"));
+    assert!(fetched <= total - paused.downloaded_bytes as usize + SPLIT_OVERLAP, "only the rest came from the new link ({fetched})");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn refresh_refuses_a_different_file() {
+    let h = Harness::new().await;
+    let data = test_data(2 * 1024 * 1024, 52);
+    h.server.state.add("orig.bin", FileSpec::new(data.clone()).etag("v1").delay(Duration::from_millis(30)));
+    let id = h.add("/files/orig.bin", "orig.bin");
+    h.wait_partial(&id).await;
+
+    let running = h.engine.refresh_link(&id, &h.server.url("/files/orig.bin")).await.unwrap_err();
+    assert!(running.to_string().contains("Pause"), "{running}");
+    h.engine.pause(&id).unwrap();
+    h.wait_status(&id, DownloadStatus::Paused).await;
+
+    h.server.state.add("bigger.bin", FileSpec::new(test_data(3 * 1024 * 1024, 53)).etag("v1"));
+    let size = h.engine.refresh_link(&id, &h.server.url("/files/bigger.bin")).await.unwrap_err();
+    assert!(size.to_string().contains("different file"), "{size}");
+    h.server.state.add("newer.bin", FileSpec::new(test_data(2 * 1024 * 1024, 54)).etag("v2"));
+    let version = h.engine.refresh_link(&id, &h.server.url("/files/newer.bin")).await.unwrap_err();
+    assert!(version.to_string().contains("different version"), "{version}");
+    assert_eq!(h.get(&id).url, h.server.url("/files/orig.bin"), "a refused link changes nothing");
+}
+
 fn segments_cleared(h: &Harness, id: &str) -> bool {
     downloads::segments(&h.db.lock().unwrap(), id).unwrap().is_empty()
 }

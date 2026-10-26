@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: dynamic segmentation done (idle connections take over the slowest ranges). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: refresh expired links done (right-click → Refresh Download Link…, and the New Download dialog offers to continue a matching unfinished download). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 1 | 1 | 7 | In progress |
-| **Total** | **67** | **10** | **82** | |
+| M8 — BDM 1.1 Everyday power | 2 | 1 | 7 | In progress |
+| **Total** | **68** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -281,7 +281,12 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] Resumed downloads use as many connections as a fresh plan, so one big leftover range is spread out again
   - [x] The split layout is saved with progress; pause, restart and resume after splits are byte-exact (tests)
   - [x] Test: one slow connection among eight on a 16 MiB file; finished in under 4 s instead of over 5 s
-- [ ] Refresh expired links: resume a download from a new link to the same file.
+- [x] Refresh expired links: resume a download from a new link to the same file.
+  - [x] Right-click → Refresh Download Link…: paste a new link; BDM checks it and continues with the progress kept
+  - [x] Same file check: same size, same ETag where both have one, and the new server must resume if there's progress
+  - [x] The New Download dialog spots an unfinished download with the same name and size and offers "Continue It"
+  - [x] Video and audio downloads don't need it (yt-dlp fetches fresh addresses on every resume)
+  - [x] Tests: continue from a new link byte-exact, nothing re-fetched; different size, version or a running download refused
 - [ ] Virus scan after download (Microsoft Defender).
 - [ ] Subtitles, chapters and thumbnails for video downloads.
 - [ ] Command line and `bdm://` links.

@@ -53,6 +53,7 @@
     "allow-file-sha256",
     "allow-bulk-action",
     "allow-open-download-window",
-    "allow-open-legal-document"
+    "allow-open-legal-document",
+    "allow-refresh-download-link"
   ]
 }

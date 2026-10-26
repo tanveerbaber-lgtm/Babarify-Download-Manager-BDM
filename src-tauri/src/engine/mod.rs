@@ -77,6 +77,30 @@ impl Default for EngineConfig {
     }
 }
 
+/// Why a new link can't continue `download`, if it can't.
+fn same_file(download: &Download, remote: &http::RemoteFile) -> Result<(), String> {
+    let size = |n: u64| crate::validation::human_size(n);
+    if let Some(known) = download.total_bytes.map(|n| n as u64) {
+        match remote.total_bytes {
+            Some(new) if new == known => {}
+            Some(new) => {
+                return Err(format!("The new link is for a different file: it's {}, this download is {}.", size(new), size(known)));
+            }
+            None => return Err("The new link's server doesn't say how big the file is, so BDM can't tell it's the same file.".into()),
+        }
+    }
+    let strong = |e: &Option<String>| e.clone().filter(|e| !e.starts_with("W/"));
+    if let (Some(old), Some(new)) = (strong(&download.etag), strong(&remote.etag))
+        && old != new
+    {
+        return Err("The new link is for a different version of this file (the server's file tag differs).".into());
+    }
+    if download.downloaded_bytes > 0 && download.resumable && !remote.resumable {
+        return Err("The new link's server can't resume downloads, so the progress would be lost. Use Download Again instead.".into());
+    }
+    Ok(())
+}
+
 /// Why a running download was told to stop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -265,6 +289,51 @@ impl Engine {
             self.inner.sink.updated(&downloads::require(&conn, id)?);
         }
         self.schedule()
+    }
+
+    /// Points an unfinished file download at a new link to the same file
+    /// (for links that expired), keeping what was already downloaded. The new
+    /// link must report the same size and, where both have one, the same
+    /// ETag; the download must not be running.
+    pub async fn refresh_link(&self, id: &str, new_url: &str) -> AppResult<Download> {
+        let url = crate::validation::validate_url(new_url)?;
+        let download = {
+            if self.sched()?.active.contains_key(id) {
+                return Err(AppError::Validation("Pause the download before changing its link.".into()));
+            }
+            downloads::require(&*self.inner.db.lock()?, id)?
+        };
+        if download.kind == crate::models::DownloadKind::Media {
+            return Err(AppError::Validation(
+                "Video and audio downloads get a fresh link from the site every time they resume.".into(),
+            ));
+        }
+        if download.status == DownloadStatus::Completed {
+            return Err(AppError::Validation("This download has already finished.".into()));
+        }
+        self.inner.guard.check_literal(&url).map_err(|b| AppError::Validation(b.to_string()))?;
+        let cookie = self.inner.cookies.header_for(url.as_str());
+        let remote = http::probe(&self.inner.client, url.as_str(), download.referrer.as_deref(), cookie.as_deref())
+            .await
+            .map_err(|e| AppError::Validation(e.user_message()))?;
+        same_file(&download, &remote).map_err(AppError::Validation)?;
+
+        let conn = self.inner.db.lock()?;
+        downloads::replace_link(
+            &conn,
+            id,
+            url.as_str(),
+            &downloads::RemoteInfo {
+                final_url: &remote.final_url,
+                total_bytes: remote.total_bytes,
+                resumable: remote.resumable,
+                etag: remote.etag.as_deref(),
+                last_modified: remote.last_modified.as_deref(),
+            },
+        )?;
+        let updated = downloads::require(&conn, id)?;
+        self.inner.sink.updated(&updated);
+        Ok(updated)
     }
 
     /// Pauses a running or queued download, keeping its progress.

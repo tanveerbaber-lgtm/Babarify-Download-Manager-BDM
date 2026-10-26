@@ -526,6 +526,24 @@ pub async fn unregister_browser_integration(state: State<'_, AppState>) -> AppRe
     Ok(registry::status(&state.data_dir))
 }
 
+/// Points an unfinished download at a new link to the same file (when its
+/// link expired), keeping its progress, and resumes it if asked.
+#[tauri::command]
+pub async fn refresh_download_link(
+    id: String,
+    url: String,
+    resume: Option<bool>,
+    state: State<'_, AppState>,
+) -> AppResult<Download> {
+    validate_ids(std::slice::from_ref(&id))?;
+    let updated = state.engine.refresh_link(&id, &url).await?;
+    if resume.unwrap_or(true) {
+        state.engine.enqueue(&id)?;
+        return downloads::require(&*state.db()?, &id);
+    }
+    Ok(updated)
+}
+
 /// What the "New Download" dialog needs for a request from the browser.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -544,6 +562,9 @@ pub struct BrowserProposal {
     pub label: Option<String>,
     /// A previous download of the same link, if any.
     pub duplicate: Option<Download>,
+    /// An unfinished download of a file with the same name and size: the
+    /// browser probably has a fresh link to it.
+    pub resume_candidate: Option<Download>,
 }
 
 /// The file name to use for a browser download (browsers may send a full path).
@@ -568,18 +589,34 @@ pub(crate) fn propose_file(
     let conn = state.db()?;
     let category = categories::for_file_name(&conn, &file_name)?.map_or_else(|| "other".to_string(), |c| c.id);
     let duplicate = downloads::find_by_url(&conn, url.as_str())?.filter(|d| d.status != DownloadStatus::Cancelled);
+    let size = size.and_then(|s| u64::try_from(s).ok()).filter(|s| *s > 0);
+    let resume_candidate = match (&duplicate, size) {
+        (None, Some(size)) => downloads::list(&conn)?.into_iter().find(|d| continues(d, &file_name, size)),
+        _ => None,
+    };
     Ok(BrowserProposal {
         kind: "file",
         url: url.to_string(),
         file_name,
-        size: size.and_then(|s| u64::try_from(s).ok()).filter(|s| *s > 0),
+        size,
         referrer: referrer.map(|r| r.to_string()),
         category,
         title: None,
         options: None,
         label: None,
         duplicate,
+        resume_candidate,
     })
+}
+
+/// A paused or failed file download that a new browser download of
+/// `file_name` (`size` bytes) could continue.
+fn continues(d: &Download, file_name: &str, size: u64) -> bool {
+    d.kind == DownloadKind::File
+        && matches!(d.status, DownloadStatus::Paused | DownloadStatus::Failed)
+        && d.downloaded_bytes > 0
+        && d.total_bytes == Some(size as i64)
+        && d.file_name.eq_ignore_ascii_case(file_name)
 }
 
 /// Describes a video/audio choice from the on-video panel for the confirm dialog.
@@ -613,6 +650,7 @@ pub(crate) fn propose_media(
         options: Some(options.clone()),
         label: label.map(str::to_owned),
         duplicate,
+        resume_candidate: None,
     })
 }
 

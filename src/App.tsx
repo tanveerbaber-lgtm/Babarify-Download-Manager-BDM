@@ -10,6 +10,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu";
 import { QueueDialog } from "./components/QueueDialog";
 import { SpeedLimitDialog } from "./components/SpeedLimitDialog";
+import { RefreshLinkDialog } from "./components/RefreshLinkDialog";
 import { SettingsView } from "./components/SettingsView";
 import { BrowserView } from "./components/BrowserView";
 import { Toasts, type ToastMessage } from "./components/Toast";
@@ -40,6 +41,7 @@ export default function App() {
   const [editingQueue, setEditingQueue] = useState<Queue | null | undefined>(undefined);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState<Download | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   /** Browser requests waiting in the "New Download" dialog, oldest first. */
   const [proposals, setProposals] = useState<BrowserProposal[]>([]);
@@ -239,6 +241,11 @@ export default function App() {
       { label: "Start / Resume", disabled: resumeIds.length === 0, onSelect: () => act("resume", resumeIds) },
       { label: "Pause", disabled: pauseIds.length === 0, onSelect: () => act("pause", pauseIds) },
       { label: "Download Again", disabled: redownloadIds.length === 0, onSelect: () => bulk(() => api.redownload(redownloadIds)) },
+      {
+        label: "Refresh Download Link…",
+        disabled: !one || one.kind !== "file" || ["completed", "downloading", "queued"].includes(one.status),
+        onSelect: () => one && setRefreshing(one),
+      },
       null,
       {
         label: "Priority",
@@ -477,6 +484,12 @@ export default function App() {
         current={sharedLimit ? Math.round(sharedLimit / 1024) : null}
         onClose={() => setLimitOpen(false)}
         onApply={(kbps) => bulk(() => api.setSpeedLimit([...selected], kbps), kbps ? `Limited to ${formatSpeed(kbps * 1024)}.` : "Speed limit removed.")}
+      />
+      <RefreshLinkDialog
+        key={`refresh-${refreshing?.id ?? ""}`}
+        download={refreshing}
+        onClose={() => setRefreshing(null)}
+        onDone={(d) => notify(d.status === "queued" ? `Continuing with the new link: ${d.fileName}` : `Link updated: ${d.fileName}`)}
       />
       <Toasts toasts={toasts} onDismiss={dismissToast} />
       <ConfirmDialog

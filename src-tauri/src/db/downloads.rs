@@ -222,6 +222,28 @@ pub fn set_remote_info(conn: &Connection, id: &str, info: &RemoteInfo<'_>) -> Ap
     Ok(())
 }
 
+/// Points a download at a new link to the same file, keeping its progress.
+/// A failed download becomes paused, ready to resume.
+pub fn replace_link(conn: &Connection, id: &str, url: &str, info: &RemoteInfo<'_>) -> AppResult<()> {
+    conn.execute(
+        "UPDATE downloads SET url = ?2, final_url = ?3, total_bytes = ?4, resumable = ?5, etag = ?6,
+                              last_modified = ?7, error_message = NULL, retry_at = NULL, auto_retries = 0,
+                              status = CASE status WHEN 'failed' THEN 'paused' ELSE status END, updated_at = ?8
+         WHERE id = ?1",
+        params![
+            id,
+            url,
+            info.final_url,
+            info.total_bytes.map(|n| n as i64),
+            info.resumable,
+            info.etag,
+            info.last_modified,
+            now_ms()
+        ],
+    )?;
+    Ok(())
+}
+
 pub fn set_file_name(conn: &Connection, id: &str, file_name: &str) -> AppResult<()> {
     conn.execute(
         "UPDATE downloads SET file_name = ?2, updated_at = ?3 WHERE id = ?1",

@@ -291,6 +291,8 @@ export interface BrowserProposal {
   /** e.g. "MP4 · 1080p". */
   label: string | null;
   duplicate: Download | null;
+  /** An unfinished download with the same name and size, which this link could continue. */
+  resumeCandidate: Download | null;
 }
 
 // ---------------------------------------------------------------- browser

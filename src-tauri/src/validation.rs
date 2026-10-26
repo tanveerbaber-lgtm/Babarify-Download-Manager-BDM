@@ -209,6 +209,21 @@ fn hex(b: u8) -> Option<u8> {
     }
 }
 
+/// "1.2 GB", "350 KB", "12 bytes": for messages.
+pub fn human_size(bytes: u64) -> String {
+    let units = ["KB", "MB", "GB", "TB"];
+    if bytes < 1024 {
+        return format!("{bytes} bytes");
+    }
+    let mut v = bytes as f64 / 1024.0;
+    let mut i = 0;
+    while v >= 1024.0 && i < units.len() - 1 {
+        v /= 1024.0;
+        i += 1;
+    }
+    if v >= 100.0 { format!("{v:.0} {}", units[i]) } else { format!("{v:.1} {}", units[i]) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
