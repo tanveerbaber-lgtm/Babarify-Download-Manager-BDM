@@ -742,3 +742,12 @@ answers, permission justifications, and the store extension IDs BDM must allow b
 - **Fixed:** yt-dlp is asked for UTF-8 output (`--encoding utf-8`), so titles and paths with ’, — or Urdu arrive
   intact, and BDM reads every line lossily instead of stopping at one it can't decode.
 - Test: a line with a 0x92 byte followed by a progress line; both arrive. 190 Rust tests pass.
+
+## Website screenshots (2026-10-26)
+
+- 19 screenshots at 2x in `website-assets/` with captions (README.md there): the list (light and dark), download
+  window and its tabs, Add Download, video downloader, browser confirm, batch, queue schedule, browser integration,
+  settings (Windows, Security, Video Downloads, Speed and When Done), copied-link offer, the extension popup and
+  options, and the on-video panel. Sample data only.
+- **Found:** the extension options showed "No sites yet." under a listed sign-in site, because `small { display:
+  block }` beat the `hidden` attribute. **Fixed** with a `[hidden]` rule in options.css. Extension tests: 14 pass.

@@ -32,6 +32,11 @@ h2 {
   cursor: pointer;
 }
 
+/* Rules like `small { display: block }` would otherwise beat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 small {
   display: block;
   color: var(--gray);
