@@ -670,3 +670,23 @@ With the installed test build and the reloaded extension:
   the sizes before anything but the size probe is fetched; and a single-stream download of unknown size paused when
   free space drops, then completed byte-exact after resuming). Tests use a stand-in free-space reading so they don't
   depend on this PC's drive. Clippy and TypeScript clean; the dialog warning checked in the sample-data preview.
+
+### M8 checked in the installed app (2026-10-26)
+
+With the test installer installed from Explorer (BDM process started 7:33 PM), using computer use and your installed
+`bdm.exe`:
+- **Tray:** BDM's icon is in the notification area; its tooltip reads "Babarify Download Manager" (nothing was
+  downloading); a left click brought the window forward. The title bar is navy.
+- **Close to tray:** the window's ✕ hid BDM; its taskbar button went away, the tray icon stayed, and the same process
+  (pid 6244) kept running. The one-time notice wasn't seen: Windows' Do Not Disturb was on.
+- **Copied link:** with an Ubuntu ISO link on the clipboard, "Download with BDM?" (ubuntu-24.04.1-desktop-a…,
+  releases.ubuntu.com) appeared above the taskbar's corner within 2 s and had closed by itself 20 s later. Nothing
+  was downloaded.
+- **Command line:** `bdm.exe --add <iso link>` reached the running BDM (no second copy) and opened New Download
+  (Compressed, Main queue); `bdm.exe --import links.txt` (two links, on E:) opened the Batch dialog's List of Links
+  with both links.
+- **bdm://:** `bdm://add?url=…&name=Big%20Buck%20Bunny%201080p.mp4&folder=C%3A%5CWindows` opened through Windows
+  showed New Download with that name, saving to Downloads\Videos: the folder in the link was ignored. Every dialog
+  was cancelled.
+- **Not checked:** the tray's right-click menu (computer use may not right-click the taskbar), starting with Windows
+  after a sign-in, and `--start`/`--later` (they share the Add dialog's code; not run to keep your list unchanged).

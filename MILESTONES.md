@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8 (BDM 1.1) built: all 7 features. Left: checking the tray/startup/clipboard and command-line/bdm:// features in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8 checked in the installed app: tray, close to tray, copied-link offer, --add, --import and bdm:// links work. Left: the tray's right-click menu (needs you) and Windows startup after a sign-in. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 5 | 2 | 7 | In progress (2 checks in the installed app) |
-| **Total** | **71** | **11** | **82** | |
+| M8 — BDM 1.1 Everyday power | 6 | 1 | 7 | In progress (tray menu and Windows startup to confirm) |
+| **Total** | **72** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -273,7 +273,9 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] Copied links: a single link to a file type BDM downloads opens a small "Download with BDM?" window in the
         corner (12 s, then it closes); Download goes through the New Download dialog like a browser download.
         Links already in the list aren't offered. The window may only read, accept or dismiss its offer.
-  - [ ] Check in the installed app: tray menu, close to tray, Windows startup, copying a link
+  - [x] Installed app (2026-10-26): tray icon and tooltip; left click opens BDM; closing keeps the same process running in the
+        tray; copying an ISO link showed "Download with BDM?" in the corner within 2 s and it closed by itself
+  - [ ] The tray's right-click menu (computer use can't right-click the taskbar) and starting with Windows after a sign-in
 - [x] Dynamic segmentation: idle connections take over the slowest parts.
   - [x] A finished connection takes an unclaimed range, else the back half of the largest remaining one
         (256 KiB gap ahead of its connection, both parts at least the minimum segment size)
@@ -298,13 +300,15 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] Exact language codes (en, ur, pt-BR); wider patterns also took dozens of machine translations and got rate-limited
   - [x] When the site refuses the subtitles (HTTP 429), the video downloads again without them
   - [x] Real YouTube check (Sprite Fright, CC-BY): MP4 with an English subtitle track, cover art and 7 chapters
-- [~] Command line and `bdm://` links. *(check in the installed app left)*
+- [x] Command line and `bdm://` links.
   - [x] `--add` (with `--name`, `--folder`, `--queue`, `--start`/`--later`), bare links, `--media`, `--import links.txt`
   - [x] A second launch hands its arguments to the running BDM; at first launch they wait until the window has loaded
   - [x] `bdm://add?url=…&name=…` and `bdm://media?url=…`: always the New Download (or video) dialog, never a folder,
         queue or silent start; registered per user on each launch of the installed app, removed by the uninstaller
   - [x] Usage in COMMAND_LINE.md
-  - [ ] Check in the installed app: `bdm.exe --add …`, a `bdm://` link from the browser, `--import`
+  - [x] Installed app (2026-10-26): `bdm.exe --add <url>` reached the running BDM and opened New Download; `--import links.txt`
+        opened the Batch dialog with both links; a `bdm://add` link opened through Windows showed New Download with
+        its name and ignored its `folder=C:\Windows`
 - [x] Disk-space guard: warn before starting, pause before the drive is full.
   - [x] Before a file starts: what's left to write plus a 256 MB reserve must fit, else it pauses with the sizes
   - [x] Downloads of unknown size (videos, servers without a size) are watched every 2 s and paused before the drive fills
