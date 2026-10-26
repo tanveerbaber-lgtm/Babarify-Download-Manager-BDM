@@ -52,6 +52,43 @@ pub fn finalize(temp: &Path, dest_dir: &Path, file_name: &str) -> EngineResult<P
     Err(std::io::Error::new(ErrorKind::AlreadyExists, "no free file name in the destination folder").into())
 }
 
+/// Marks a finished file as downloaded from the internet ("Mark of the Web"),
+/// as browsers do, so Windows SmartScreen and Office warn before opening it.
+/// Only a link's origin and path are recorded, never its query string or
+/// credentials, which can carry tokens. Drives without alternate data
+/// streams (FAT32, exFAT) can't hold the mark; that's ignored.
+pub fn mark_from_internet(path: &Path, url: &str, referrer: Option<&str>) {
+    let text = zone_identifier(url, referrer);
+    #[cfg(windows)]
+    {
+        let mut stream = path.as_os_str().to_owned();
+        stream.push(":Zone.Identifier");
+        let _ = std::fs::write(PathBuf::from(stream), text);
+    }
+    #[cfg(not(windows))]
+    let _ = (path, text);
+}
+
+/// The `Zone.Identifier` contents for a download (zone 3 = Internet).
+fn zone_identifier(url: &str, referrer: Option<&str>) -> String {
+    let clean = |raw: &str| {
+        let mut u = url::Url::parse(raw).ok()?;
+        u.set_query(None);
+        u.set_fragment(None);
+        let _ = u.set_username("");
+        let _ = u.set_password(None);
+        Some(u.to_string())
+    };
+    let mut text = String::from("[ZoneTransfer]\r\nZoneId=3\r\n");
+    if let Some(r) = referrer.and_then(clean) {
+        text.push_str(&format!("ReferrerUrl={r}\r\n"));
+    }
+    if let Some(h) = clean(url) {
+        text.push_str(&format!("HostUrl={h}\r\n"));
+    }
+    text
+}
+
 /// Lowercase hex SHA-256 of a file (blocking; call from `spawn_blocking`).
 pub fn sha256_file(path: &Path) -> std::io::Result<String> {
     let mut file = std::fs::File::open(path)?;
@@ -91,6 +128,29 @@ pub fn remove_if_exists(path: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zone_identifier_keeps_tokens_out() {
+        let text = zone_identifier("https://cdn.example.com/files/a.zip?sig=secret#x", Some("https://site.example/page?session=abc"));
+        assert!(text.starts_with("[ZoneTransfer]\r\nZoneId=3\r\n"));
+        assert!(text.contains("HostUrl=https://cdn.example.com/files/a.zip\r\n"));
+        assert!(text.contains("ReferrerUrl=https://site.example/page\r\n"));
+        assert!(!text.contains("secret") && !text.contains("session"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn finished_files_get_the_mark_of_the_web() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("setup.exe");
+        std::fs::write(&file, b"x").unwrap();
+        mark_from_internet(&file, "https://cdn.example.com/setup.exe", None);
+        let mut stream = file.as_os_str().to_owned();
+        stream.push(":Zone.Identifier");
+        let mark = std::fs::read_to_string(PathBuf::from(stream)).unwrap();
+        assert!(mark.contains("ZoneId=3"));
+        assert_eq!(std::fs::read(&file).unwrap(), b"x", "the file itself is untouched");
+    }
 
     #[test]
     fn only_bdm_temp_files_are_ever_removed() {

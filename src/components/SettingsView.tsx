@@ -180,7 +180,7 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
         <SwitchSetting
           id="confirm-browser"
           title="Ask before downloading from the browser"
-          desc="Show the Download File Info dialog (name, category, folder) for downloads and videos sent by the browser."
+          desc="Show the New Download dialog (name, category, folder) for downloads and videos sent by the browser."
           checked={settings.confirmBrowserDownloads}
           onChange={(v) => save({ confirmBrowserDownloads: v })}
         />

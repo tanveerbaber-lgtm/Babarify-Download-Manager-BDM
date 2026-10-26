@@ -17,10 +17,10 @@ interface DownloadInfoDialogProps {
   onCategoriesChanged: () => void;
 }
 
-/** "Download File Info": confirm or adjust a download the browser sent. */
+/** "New Download": confirm or adjust a download the browser sent. */
 export function DownloadInfoDialog(props: DownloadInfoDialogProps) {
   return (
-    <Modal open title="Download file info" onClose={props.onClose} className="info-dialog">
+    <Modal open title="New download" onClose={props.onClose} className="info-dialog">
       <InfoForm {...props} />
     </Modal>
   );
@@ -108,7 +108,7 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
   return (
     <form onSubmit={onSubmit} noValidate>
       <header className="modal-header">
-        <h2>Download File Info</h2>
+        <h2>New Download</h2>
         <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
           <X size={18} />
         </button>

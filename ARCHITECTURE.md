@@ -197,4 +197,6 @@ Brand assets live in `assets/brand/` (SVG mark, app icon) and come from `assets/
 - **Files:** names cleaned of reserved characters, device names and invisible formatting characters; finished files
   never overwrite; only `.bdmpart` files and `.bdm-media-*` folders are ever deleted.
 - **Subprocesses:** yt-dlp gets an argument list (no shell), `--ignore-config --no-plugin-dirs`, the URL after `--`.
+- **Mark of the Web:** finished files get a `Zone.Identifier` stream (zone 3, origin and path only) so Windows
+  SmartScreen and Office treat them as downloaded from the internet.
 - **Secrets:** URLs with credentials are refused; error messages never include URLs; there are no log files.

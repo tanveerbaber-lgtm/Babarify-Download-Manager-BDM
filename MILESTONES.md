@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — UI refresh in 1.0.0: compact IDM-style layout that fits the window, Arial typography, compact popups, and the video size/time-left fix. Open: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — Audit fixes: "New Download" dialog and "Progress" tab (no IDM wording left), Mark of the Web on finished downloads, navy headers and title bars. Open: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -83,7 +83,7 @@ Connect the browser to the Windows application.
   - [x] Panel, format list and one-click download verified in Chrome 155 (local page and YouTube) and Edge 156
   - [x] Off by default; no script on any page until switched on
   - [x] Turned on in your own Chrome: site-access prompt accepted, bar and full format list shown on YouTube
-- [x] "Download File Info" dialog and per-download window, like IDM but cleaner *(added 2026-10-25)*.
+- [x] "New Download" confirm dialog and per-download window *(added 2026-10-25)*.
   - [x] Browser downloads and panel choices open a confirm dialog: name, size, format, category, folder, queue
   - [x] Category picks the folder (created if new); "Always save <category> here"; duplicate warning
   - [x] Start Download / Download Later / Cancel; a setting lets browser downloads start without asking
@@ -98,7 +98,7 @@ Connect the browser to the Windows application.
   - [ ] Behaviour across a browser version update (observe on the next Chrome/Edge update)
 
 ## M5 — Advanced Download Management
-Add the convenience features expected from a mature IDM alternative.
+Add the convenience features expected from a mature download manager.
 - [x] Implement download queues and priorities.
   - [x] Queues table, Main queue, priority (low/normal/high) and position per download
   - [x] Engine starts queued downloads by priority, then position, from running queues only

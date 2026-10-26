@@ -284,7 +284,7 @@ pub struct Settings {
     pub duplicate_action: DuplicateAction,
     /// Allow links to this PC and the local network (off by default).
     pub allow_local_network: bool,
-    /// Ask before starting downloads sent by the browser ("Download File Info").
+    /// Ask before starting downloads sent by the browser (the "New Download" dialog).
     pub confirm_browser_downloads: bool,
     /// Open a download's own window when it starts from that dialog.
     pub show_download_window: bool,

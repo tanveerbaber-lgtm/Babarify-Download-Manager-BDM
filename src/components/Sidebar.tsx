@@ -89,7 +89,7 @@ function loadCollapsed(): Record<Section, boolean> {
   }
 }
 
-/** A section heading that folds its items away (like IDM's category tree). */
+/** A section heading that folds its items away. */
 function SectionHeading({
   label,
   collapsed,

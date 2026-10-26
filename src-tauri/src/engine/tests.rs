@@ -866,3 +866,17 @@ fn yt_dlp_errors_never_show_signed_links() {
     let msg = crate::media::output::friendly_error(&["ERROR: [generic] Unable to fetch https://cdn.example/v.mp4?sig=abc123&expires=9 because of a server error".to_string()]);
     assert!(!msg.contains("sig=abc123") && !msg.contains("https://"), "{msg}");
 }
+
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn completed_downloads_carry_the_mark_of_the_web() {
+    let h = Harness::new().await;
+    h.server.state.add("motw.exe", FileSpec::new(test_data(20_000, 80)));
+    let id = h.add("/files/motw.exe", "motw.exe");
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed);
+    let mut stream = std::path::PathBuf::from(d.saved_path.unwrap()).into_os_string();
+    stream.push(":Zone.Identifier");
+    let mark = std::fs::read_to_string(std::path::PathBuf::from(stream)).expect("Zone.Identifier stream");
+    assert!(mark.contains("ZoneId=3") && mark.contains("HostUrl=http://127.0.0.1"), "{mark}");
+}

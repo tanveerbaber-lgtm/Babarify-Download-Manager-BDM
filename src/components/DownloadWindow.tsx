@@ -155,7 +155,7 @@ export function DownloadWindow({ id }: { id: string }) {
     <div className="dlw">
       <div className="tabs dlw-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "status"} onClick={() => setTab("status")}>
-          Download Status
+          Progress
         </button>
         <button type="button" role="tab" aria-selected={tab === "limit"} onClick={() => setTab("limit")}>
           Speed Limit

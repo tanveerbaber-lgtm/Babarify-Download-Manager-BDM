@@ -11,6 +11,7 @@ mod media;
 mod models;
 mod net_guard;
 mod state;
+mod title_bar;
 mod validation;
 
 #[cfg(test)]
@@ -74,7 +75,7 @@ impl EventSink for TauriSink {
 pub const EVENT_QUEUES_CHANGED: &str = "queues:changed";
 
 pub const EVENT_BROWSER_ADDED: &str = "browser:added";
-/// A browser request waiting for the "Download File Info" dialog.
+/// A browser request waiting for the "New Download" dialog.
 pub const EVENT_BROWSER_CONFIRM: &str = "browser:confirm";
 pub const EVENT_BROWSER_MEDIA: &str = "browser:media";
 
@@ -241,6 +242,10 @@ pub fn run() {
                 && let Err(e) = browser::registry::register(&data_dir, &host)
             {
                 eprintln!("[bdm] couldn't register the browser helper: {e}");
+            }
+
+            if let Some(main) = app.get_webview_window("main") {
+                title_bar::paint(&main);
             }
 
             app.manage(AppState { database, engine, tools, data_dir: data_dir.clone(), fallback_download_dir });

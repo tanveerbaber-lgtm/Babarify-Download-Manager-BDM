@@ -1595,7 +1595,7 @@ code {
   row-gap: 6px;
 }
 
-/* ---------- Download File Info dialog ---------- */
+/* ---------- New Download dialog ---------- */
 
 .info-dialog {
   width: min(600px, calc(100vw - 32px));
@@ -2091,7 +2091,7 @@ code {
   text-decoration: none;
 }
 
-/* ---------- Compact layout (IDM-style density, 2026-10-26) ----------
+/* ---------- Compact layout (2026-10-26) ----------
    Everything fits the window: smaller type and controls, tight rows, and a
    sidebar whose middle scrolls while the brand and Settings stay put. */
 
@@ -2301,7 +2301,7 @@ body {
   font-size: 17px;
 }
 
-/* Table: tight IDM-like rows. */
+/* Table: tight rows. */
 .table-wrap {
   border-radius: 10px;
 }
@@ -2654,7 +2654,7 @@ select,
   height: 30px;
 }
 
-/* Download File Info */
+/* New Download dialog */
 .info-head {
   gap: 10px;
   padding: 9px 11px;
@@ -2834,4 +2834,72 @@ select,
 .dlw-complete-icon {
   width: 36px;
   height: 36px;
+}
+
+/* ---------- Navy headers (dialogs and the download window) ----------
+   Header bands use the sidebar's Babarify navy with white text. */
+
+.modal-header {
+  background: var(--sidebar);
+  color: #fff;
+  padding: 11px 12px 11px 18px;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-header h2 {
+  color: #fff;
+}
+
+.modal-header .icon-button,
+.tabs .tabs-close {
+  color: #cbd5e1;
+}
+
+.modal-header .icon-button:hover:not(:disabled),
+.tabs .tabs-close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal-header + .modal-body,
+.tabs + .modal-body,
+.tabs + form .modal-body {
+  padding-top: 14px;
+}
+
+/* Tab strips at the top of dialogs and the download window */
+.modal .tabs,
+.dlw-tabs {
+  background: var(--sidebar);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  padding: 8px 12px 0;
+}
+
+.modal .tabs button,
+.dlw-tabs button {
+  color: #94a3b8;
+  border-bottom-color: transparent;
+}
+
+.modal .tabs button:hover,
+.dlw-tabs button:hover {
+  color: #e2e8f0;
+}
+
+.modal .tabs button[aria-selected="true"],
+.dlw-tabs button[aria-selected="true"] {
+  color: #fff;
+  border-bottom-color: #60a5fa;
+}
+
+/* The download window's tab strip runs edge to edge as its header. */
+.dlw {
+  padding-top: 0;
+}
+
+.dlw-tabs {
+  margin: 0 -12px;
+  border-radius: 0;
+  padding: 6px 12px 0;
 }

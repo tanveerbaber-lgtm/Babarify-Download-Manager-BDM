@@ -203,6 +203,7 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     let saved = tokio::task::spawn_blocking(move || files::finalize(&src, &dir, &final_name))
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))??;
+    files::mark_from_internet(&saved, &download.url, download.referrer.as_deref());
     let size = std::fs::metadata(&saved)?.len();
     let _ = std::fs::remove_dir_all(&temp_dir);
 

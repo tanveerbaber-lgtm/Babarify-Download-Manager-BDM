@@ -41,7 +41,7 @@ export default function App() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  /** Browser requests waiting for "Download File Info", oldest first. */
+  /** Browser requests waiting in the "New Download" dialog, oldest first. */
   const [proposals, setProposals] = useState<BrowserProposal[]>([]);
 
   const openAdd = useCallback((tab: Tab = "file", mediaUrl?: string) => {

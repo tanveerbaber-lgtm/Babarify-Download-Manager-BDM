@@ -510,6 +510,7 @@ async fn finish(
     let saved = tokio::task::spawn_blocking(move || files::finalize(&temp, &dir, &name))
         .await
         .map_err(|e| std::io::Error::other(e.to_string()))??;
+    files::mark_from_internet(&saved, &download.url, download.referrer.as_deref());
 
     let updated = {
         let conn = ctx.db.lock()?;

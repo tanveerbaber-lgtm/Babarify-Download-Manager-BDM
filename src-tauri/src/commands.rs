@@ -513,7 +513,7 @@ pub async fn unregister_browser_integration(state: State<'_, AppState>) -> AppRe
     Ok(registry::status(&state.data_dir))
 }
 
-/// What the "Download File Info" dialog needs for a request from the browser.
+/// What the "New Download" dialog needs for a request from the browser.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserProposal {
@@ -612,13 +612,14 @@ pub async fn open_download_window(id: String, app: tauri::AppHandle, state: Stat
         let _ = w.set_focus();
         return Ok(());
     }
-    tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
+    let window = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
         .title(d.title.as_deref().unwrap_or(&d.file_name))
         .inner_size(540.0, 480.0)
         .min_inner_size(440.0, 360.0)
         .resizable(true)
         .build()
         .map_err(|e| AppError::Internal(format!("couldn't open the download window: {e}")))?;
+    crate::title_bar::paint(&window);
     Ok(())
 }
 

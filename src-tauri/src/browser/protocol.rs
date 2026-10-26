@@ -66,7 +66,7 @@ pub struct BrowserResponse {
     /// Download choices, in reply to `Formats`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media: Option<MediaChoices>,
-    /// The request is waiting in BDM's "Download File Info" dialog.
+    /// The request is waiting in BDM's "New Download" dialog.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub asked: bool,
 }

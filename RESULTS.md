@@ -300,9 +300,9 @@ Improvement made while testing: formats are requested as soon as the pointer rea
 ### Not covered
 - Windows 10 (no machine available).
 
-## "Download File Info" dialog and download window — 2026-10-25
+## "New Download" dialog and download window — 2026-10-25
 
-Requested after M6 from IDM screenshots; checked in the release build, with requests sent through the real native host.
+Requested after M6 from reference screenshots; checked in the release build, with requests sent through the real native host.
 - File request (`download`, 20 MB, browser path in the name, referrer): dialog showed "Sample Video Archive.mp4",
   20.0 MB, category Videos (from the extension), folder `Downloads\Videos`, queue Main. Start Download → the download
   window opened → completed in ~4 s → completion summary (Open / Open Folder / Close); file saved in the new
@@ -389,7 +389,7 @@ and all downloads are present. Edge on real Windows hasn't been checked yet.
 
 ## Compact UI, Arial typography and compact popups (2026-10-26)
 
-Requested with IDM as a density reference (not copied), keeping the Babarify colours.
+Requested with another download manager as a density reference (not copied), keeping the Babarify colours.
 - **Fit:** the sidebar no longer grows past the window (Settings was cut off behind the taskbar); its middle scrolls
   while the brand and Settings stay put. Show, Queues and Categories fold, and the choice is remembered.
 - **Density:** 13 px body text, 30 px controls, a slim summary strip instead of tall cards, tight table rows, shorter
@@ -398,7 +398,7 @@ Requested with IDM as a density reference (not copied), keeping the Babarify col
   and Time left hides; the Name column always keeps its width. Minimum window 820×520.
 - **Typography:** Arial for body text, Arial Bold for headings and titles, in the app, splash, extension popup,
   options and video panel; the bundled Montserrat font was removed (smaller app, 323 notices).
-- **Popups:** every dialog (Add Download, Download File Info, Batch, Queue, Category, Speed Limit, Confirm, video form),
+- **Popups:** every dialog (Add Download, New Download, Batch, Queue, Category, Speed Limit, Confirm, video form),
   the right-click menu, toasts, the download window (now 540×480) and the extension pages were compacted.
 - Checked in a sample-data preview at 1333×720 (150% scaling), 1050×640 and 900×540, light and dark, plus screenshots
   of every popup. TypeScript, 9 extension tests, 142 Rust tests and Clippy pass.
@@ -412,3 +412,15 @@ Requested with IDM as a density reference (not copied), keeping the Babarify col
   - `BabarifyDownloadManager_1.0.0_browser-extension.zip`, 60,911 bytes,
     SHA-256 `71a4ec5b105b7488ab4c693f36472bc60bbe946c14cc07288b8e9ebc5c325b8a`
   - `SHA256SUMS.txt`; release notes updated for the new look and the video fix.
+
+## Similarity audit fixes, navy headers, Mark of the Web (2026-10-26)
+
+From the BDM vs IDM audit (https://claude.ai/artifact/Q68KwaAAQN9XTfei7tEsz5):
+- The browser confirm dialog is now **New Download** (dialog, Settings text, code comments); the download window's first
+  tab is **Progress**. No "IDM", "Internet Download Manager" or "Download File Info" remains in the app, code or docs.
+- **Mark of the Web:** finished downloads (files and media) get a `Zone.Identifier` stream (ZoneId=3, HostUrl and
+  ReferrerUrl without query strings or credentials), as browsers write, so SmartScreen and Office warn before opening
+  risky files. Unit test plus an engine test reading the stream of a real completed download (145 Rust tests pass).
+- **Navy headers:** dialog headers and tab strips and the download window's tab strip use the sidebar navy with white
+  text; on Windows 11 the main and download windows' title bars are painted navy (DWM caption, border and text colour).
+  Checked in the sample-data preview; the title-bar colour shows only in the real app.
