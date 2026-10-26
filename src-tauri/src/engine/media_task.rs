@@ -68,11 +68,20 @@ enum Pipe {
     Err,
 }
 
-/// Forwards each line of `reader` to `tx`.
+/// Forwards each line of `reader` to `tx`. Lines that aren't valid UTF-8 are
+/// decoded lossily: stopping would close the pipe, and yt-dlp's next write
+/// would then fail the download ("[Errno 22] Invalid argument" on Windows).
 fn forward_lines<R: AsyncRead + Unpin + Send + 'static>(reader: R, pipe: fn() -> Pipe, tx: mpsc::UnboundedSender<(Pipe, String)>) {
     tokio::spawn(async move {
-        let mut lines = BufReader::new(reader).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
+        let mut reader = BufReader::new(reader);
+        let mut buf = Vec::new();
+        loop {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            let line = String::from_utf8_lossy(&buf).trim_end_matches(['\r', '\n']).to_owned();
             if tx.send((pipe(), line)).is_err() {
                 break;
             }
@@ -378,6 +387,19 @@ fn hide(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn keeps_reading_after_a_line_that_isnt_utf8() {
+        // yt-dlp writing a title in the Windows code page: "PTI’s" with ’ as 0x92.
+        let out = b"BDMINFO|398+251|223021985|PTI\x92s Decisions?\r\nBDMP|downloading|1024\n".to_vec();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        forward_lines(std::io::Cursor::new(out), || Pipe::Out, tx);
+        let mut lines = Vec::new();
+        while let Some((_, line)) = rx.recv().await {
+            lines.push(line);
+        }
+        assert_eq!(lines, ["BDMINFO|398+251|223021985|PTI\u{FFFD}s Decisions?", "BDMP|downloading|1024"]);
+    }
 
     #[test]
     fn combines_progress_of_two_streams() {

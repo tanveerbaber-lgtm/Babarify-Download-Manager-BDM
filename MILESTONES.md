@@ -265,6 +265,8 @@ Features from the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), a
   - [x] The list: 12 bars in front of each download's speed; unlit gray when it isn't downloading
   - [x] The download window: navy panel with a digital readout, 24 bars, the peak marked, and a round scale (1, 2, 5, 10… MB/s)
   - [x] Checked in the frontend preview at 1180 px and 900 px wide and in the download window
+  - [x] Installed app: shown on the list and in the download window; the window opens at 500 × 500 to fit it
+  - [x] Found while checking: titles with ’ made yt-dlp's output unreadable and failed the video (Errno 22); fixed (UTF-8 output, lossy reading)
 
 ## M8 — BDM 1.1 Everyday power
 Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), one feature at a time.

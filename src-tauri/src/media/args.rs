@@ -102,6 +102,10 @@ pub fn download_args(
         s("--ignore-config"),
         // Plugins from the user's yt-dlp folders could run arbitrary code.
         s("--no-plugin-dirs"),
+        // Titles and paths in UTF-8, not the Windows code page: "’" or Urdu
+        // text would otherwise arrive mangled or as "?".
+        s("--encoding"),
+        s("utf-8"),
         s("--no-playlist"),
         s("--newline"),
         s("--no-color"),
@@ -320,5 +324,6 @@ mod tests {
         assert!(args.windows(2).any(|w| w == ["--js-runtimes", "deno:C:\\t\\deno.exe"]));
         assert!(args.windows(2).any(|w| w == ["-N", "4"]));
         assert!(args.contains(&"--ignore-config".to_string()));
+        assert!(args.windows(2).any(|w| w == ["--encoding", "utf-8"]));
     }
 }

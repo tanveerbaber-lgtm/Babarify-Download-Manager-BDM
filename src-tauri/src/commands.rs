@@ -693,7 +693,8 @@ pub async fn open_download_window(id: String, app: tauri::AppHandle, state: Stat
     }
     let window = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
         .title(d.title.as_deref().unwrap_or(&d.file_name))
-        .inner_size(500.0, 420.0)
+        // Tall enough for the speed meter, the details and the first connections.
+        .inner_size(500.0, 500.0)
         .min_inner_size(420.0, 320.0)
         .resizable(true)
         .build()

@@ -728,4 +728,17 @@ answers, permission justifications, and the store extension IDs BDM must allow b
 - The scale follows each download's own peak, so a slow download still fills its bars.
 - Screen readers get each meter as a "meter" with its value; bars don't animate with reduced motion.
 - Checked: TypeScript, the frontend preview at 1180 px and 900 px (two downloads running, 7.9 MB/s and 715 KB/s), and
-  the download window at 500 px. Not yet seen in the installed app.
+  the download window at 500 px. In the installed app (2026-10-26): grey bars on stopped rows and "Not downloading" in
+  the window, as designed.
+- The download window opens 80 px taller (500 × 500) so the meter doesn't push the details and connections down.
+
+### Found: YouTube video failed with "[Errno 22] Invalid argument" (2026-10-26)
+
+- The title "Who Will Make PTI’s Decisions?" has a curly apostrophe. yt-dlp wrote it in the Windows code page
+  (byte 0x92), which isn't UTF-8; BDM's line reader stopped at that line and closed the pipe, and yt-dlp's next
+  write then failed on Windows with Errno 22 before any bytes were downloaded.
+- Not reproducible with output to a file or `| cat`, which keep reading; yt-dlp's `--test` mode with BDM's options
+  (formats, chapters, cover art, cookies file, browser headers) all worked.
+- **Fixed:** yt-dlp is asked for UTF-8 output (`--encoding utf-8`), so titles and paths with ’, — or Urdu arrive
+  intact, and BDM reads every line lossily instead of stopping at one it can't decode.
+- Test: a line with a 0x92 byte followed by a progress line; both arrive. 190 Rust tests pass.
