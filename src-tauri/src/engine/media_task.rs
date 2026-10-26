@@ -162,7 +162,8 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
             Line::Info { format_id, expected_size, title } => {
                 state.set_streams(&format_id);
                 state.expected = expected_size;
-                if !title.is_empty() {
+                // A title chosen in BDM (or sent by the browser) is kept.
+                if !title.is_empty() && download.title.as_deref().is_none_or(|t| t.trim().is_empty()) {
                     let conn = ctx.db.lock()?;
                     conn.execute("UPDATE downloads SET title = ?2 WHERE id = ?1", rusqlite::params![id, title])
                         .map_err(AppError::from)?;
@@ -205,7 +206,7 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     if produced.parent() != Some(temp_dir.as_path()) {
         return Err(EngineError::Media("yt-dlp wrote its output to an unexpected place.".into()));
     }
-    let name = produced.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| download.file_name.clone());
+    let name = final_media_name(&download.file_name, &produced);
     let (src, dir, final_name) = (produced.clone(), dest_dir.clone(), name.clone());
     let saved = tokio::task::spawn_blocking(move || files::finalize(&src, &dir, &final_name))
         .await
@@ -223,6 +224,17 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     };
     ctx.sink.updated(&updated);
     Ok(())
+}
+
+/// The saved file's name: the one chosen in BDM, with the extension of the
+/// file yt-dlp actually produced (an audio choice may end up .m4a or .opus).
+fn final_media_name(chosen: &str, produced: &Path) -> String {
+    let produced_name = || produced.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let stem = Path::new(chosen).file_stem().map(|s| s.to_string_lossy().trim().to_owned()).unwrap_or_default();
+    match produced.extension() {
+        Some(ext) if !stem.is_empty() => format!("{stem}.{}", ext.to_string_lossy()),
+        _ => produced_name(),
+    }
 }
 
 /// Tracks byte progress across the streams yt-dlp downloads one after another.
@@ -391,5 +403,13 @@ mod tests {
         std::fs::write(dir.path().join("a.f140.m4a.ytdl"), b"x").unwrap();
         std::fs::write(dir.path().join("a.mp4"), b"x").unwrap();
         assert_eq!(newest_file(dir.path()).unwrap().file_name().unwrap(), "a.mp4");
+    }
+
+    #[test]
+    fn saved_name_is_the_chosen_one_with_the_produced_extension() {
+        let produced = Path::new("C:/tmp/.bdm-media-1/x36xhzz [x36xhzz].mp4");
+        assert_eq!(final_media_name("hls.js demo.mp4", produced), "hls.js demo.mp4");
+        assert_eq!(final_media_name("Talk.mp3", Path::new("C:/tmp/a [id].m4a")), "Talk.m4a");
+        assert_eq!(final_media_name("", produced), "x36xhzz [x36xhzz].mp4", "no chosen name: yt-dlp's");
     }
 }

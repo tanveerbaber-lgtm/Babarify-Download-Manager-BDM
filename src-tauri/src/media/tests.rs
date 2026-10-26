@@ -280,7 +280,7 @@ async fn downloads_video_with_audio_and_never_overwrites() {
     assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
     let saved = PathBuf::from(d.saved_path.unwrap());
     assert_eq!(saved.parent().unwrap(), h.dest.path());
-    assert!(d.file_name.ends_with(".mp4"), "{}", d.file_name);
+    assert_eq!(d.file_name, "pending.mp4", "the name chosen in BDM is kept");
     let s = streams(&h.real, &saved);
     assert!(s.contains(&"video:h264".to_string()) && s.contains(&"audio:aac".to_string()), "{s:?}");
     assert!(h.leftovers().is_empty(), "temp folder removed");
@@ -311,7 +311,8 @@ async fn pause_resume_and_cancel_media() {
     let Some(h) = MediaHarness::new().await else { return };
     let clip = make_clip(&h.real, 20, "640x360");
     let len = clip.len();
-    h.server.state.add("long.mp4", FileSpec::new(clip.clone()).etag("l").delay(Duration::from_millis(25)));
+    // Slow enough that the pause lands mid-file even when the whole suite runs at once.
+    h.server.state.add("long.mp4", FileSpec::new(clip.clone()).etag("l").delay(Duration::from_millis(120)));
 
     let id = h.add("/files/long.mp4", MediaOptions::Video { max_height: None, container: Container::Mp4 });
     h.wait(&id, |d| d.status == DownloadStatus::Downloading).await;
@@ -330,8 +331,9 @@ async fn pause_resume_and_cancel_media() {
     let d = h.wait_done(&id).await;
     assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
     assert_eq!(streams(&h.real, Path::new(d.saved_path.as_deref().unwrap())).len(), 2);
-    let resumed_with_range = h.server.state.requests_for("/files/long.mp4").iter().any(|l| l.range.as_deref().is_some_and(|r| !r.starts_with("bytes=0-")));
-    assert!(resumed_with_range, "yt-dlp should continue its partial file");
+    let log = h.server.state.requests_for("/files/long.mp4");
+    let resumed_with_range = log.iter().any(|l| l.range.as_deref().is_some_and(|r| !r.starts_with("bytes=0-")));
+    assert!(resumed_with_range, "yt-dlp should continue its partial file; ranges: {:?}", log.iter().map(|l| l.range.clone()).collect::<Vec<_>>());
 
     // Cancel removes the temp folder.
     let id2 = h.add("/files/long.mp4", MediaOptions::Video { max_height: None, container: Container::Mkv });

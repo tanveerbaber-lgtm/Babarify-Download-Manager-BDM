@@ -511,3 +511,28 @@ Local test pages copying common player setups, each checked in Chrome with a stu
   tab's own site or a server media detection saw on that tab. Test: the panel showed the message and the button sent
   `allowSignIn` for `example.net`.
 - 14 extension tests (cookie-refusal and base-site rules added). BDM itself is unchanged this round.
+
+## Checked in your Chrome (2026-10-26)
+
+With the installed test build and the reloaded extension:
+- **Stream fallback:** on the hls.js demo page (https://hlsjs.video-dev.org/demo/, player with a `blob:` source,
+  page not readable by yt-dlp) the panel showed "From This Page's Player" with the page's title and the stream's
+  qualities: 1080p, 720p, 480p, 288p, 184p, MP3 and M4A.
+- **YouTube:** the episode that earlier showed "This media requires a signed-in account" now lists 1080p to 144p and
+  audio. Whether youtube.com is on the sign-in list couldn't be checked (extension pages can't be opened by the tool).
+- Not done: an actual download (needs your go-ahead), the sign-in prompt itself, and header capture on a site that
+  needs it.
+
+### Full download in your Chrome, and a naming fix (2026-10-26)
+
+- From the hls.js demo page: panel → MP4 · 184p → BDM's New Download dialog → Start Download. BDM downloaded
+  21.4 MB of HLS segments at about 1.3 MB/s, merged them and saved a 19.1 MB MP4: H.264 320×184 and AAC, 10 min 34 s
+  (checked with ffprobe). Its Zone.Identifier has ZoneId=3, HostUrl = the stream and ReferrerUrl = the demo page.
+- **Bug found:** the file was saved as `x36xhzz [x36xhzz].mp4` (yt-dlp's own name) instead of "hls.js demo", and the
+  title was replaced by yt-dlp's. Every media download ignored the name chosen in the New Download / Add dialogs.
+  Fixed: the saved name is the chosen one with the extension yt-dlp produced; yt-dlp's title is only used when the
+  download has none. Unit test plus the media download test now checks the chosen name is kept.
+- **Correction:** commit `da8a079` said 160 tests passed, but the full suite hadn't been rerun after the last media
+  test was added, and `pause_resume_and_cancel_media` failed under full-suite load: the 616 KB clip finished before
+  the pause took effect, so there was nothing to resume. The test server now sends that clip more slowly; the full
+  suite passed twice (161 tests). Clippy clean.

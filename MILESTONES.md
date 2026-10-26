@@ -246,7 +246,9 @@ Features from the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), a
   - [x] DRM: a player using encrypted media is refused before anything is sent; yt-dlp's DRM check still applies
   - [x] Real yt-dlp test: an HLS stream that the server only serves with a referrer is read and downloaded to MP4
   - [x] Panel test in Chrome (stubbed BDM): page refused → stream tried with the page as referrer → choices shown
-  - [ ] Your Chrome: a site yt-dlp doesn't support that you're allowed to download from
+  - [x] Your Chrome (2026-10-26): on the hls.js demo page the panel listed the page's HLS stream (1080p to audio)
+  - [x] A real download in your Chrome (2026-10-26): hls.js demo, 184p, 19.1 MB MP4 (H.264 + AAC, 10:34), Mark of the Web set
+  - [x] Fixed: the saved video now keeps the name chosen in BDM (it was yt-dlp's "title [id]" name)
   - [x] With media detection on, the browser's request headers for each detected video go to yt-dlp
         (User-Agent, Referer, Origin, Accept, Accept-Language, page `X-` headers; never cookies or Authorization)
   - [x] Main video before ads: detected media ranked (ad hosts last, master playlists first, larger files first);
