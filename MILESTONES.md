@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — Released v1.0.0 on GitHub (private repo): installer, browser extension zip and SHA-256 checksums. Open: clean-PC test and code signing.
+**Last updated:** 2026-10-26 — Found that installs made from Claude run inside the Claude app's container (Windows virtualizes their AppData and registry), so the M7 install and browser checks must be repeated on real Windows. Data exported to `E:\BDM Data Export`; waiting for your real install.
 
 ## Progress
 
@@ -16,8 +16,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M4 — Chrome and Edge Integration | 10 | 2 | 12 | In progress (2 manual checks left) |
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
-| M7 — Windows Installer and Release | 8 | 2 | 10 | In progress |
-| **Total** | **67** | **6** | **73** | |
+| M7 — Windows Installer and Release | 5 | 5 | 10 | In progress (real-install checks pending) |
+| **Total** | **64** | **9** | **73** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -201,10 +201,10 @@ Package BDM for installation, maintenance and possible public distribution.
 - [x] Configure application metadata, icons and version information.
   - [x] Version 1.0.0 everywhere (app, Cargo, package.json, extension); publisher Babarify; © 2026 Babarify
   - [x] Windows file properties, Add/Remove Programs entry and Start menu shortcut verified; new Brandboard icons
-- [x] Implement clean installation and uninstallation.
+- [~] Implement clean installation and uninstallation. *(confirm on real Windows)*
   - [x] First launch registers the browser helper for Chrome and Edge; re-checked every launch (moves and upgrades)
   - [x] Uninstall removes program, shortcuts, Add/Remove entry and the Chrome/Edge registration; downloads untouched
-- [x] Verify download data survives application upgrades and remains user-controlled.
+- [~] Verify download data survives application upgrades and remains user-controlled. *(confirm on real Windows)*
   - [x] Development build → installed 1.0.0, uninstall → reinstall, and install-over-install: download list, settings and queues kept
   - [x] Data lives in `%APPDATA%\com.babarify.bdm`; the uninstaller only deletes it if you tick the box
 - [x] Package or manage required media dependencies in a license-compliant manner.
@@ -216,8 +216,9 @@ Package BDM for installation, maintenance and possible public distribution.
 - [ ] Test on a clean Windows environment. *(in progress)*
   - [x] Installed and uninstalled on this PC (Windows 11 Home); fresh browser profiles used for the browser checks
   - [ ] A PC or VM that never had BDM or its tools (Windows Sandbox needs Windows Pro; none available here)
-- [x] Verify Chrome and Edge integration after installation.
+- [~] Verify Chrome and Edge integration after installation. *(confirm with your own Chrome and Edge)*
   - [x] Chrome 155 and Edge 156 reach the installed BDM 1.0.0 through the installed helper ("running", version 1.0.0)
+  - [ ] Those checks ran inside the Claude app's container; repeat after a real install with your own browsers
 - [ ] Complete final acceptance testing and release checklist. *(in progress)*
   - [x] Release checklist written (RELEASE.md); automated checks pass; install, upgrade, uninstall and browser checks done
   - [x] Tagged `v1.0.0` and published the GitHub release (private repo) with the installer, extension zip and SHA256SUMS

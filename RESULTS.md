@@ -351,3 +351,20 @@ Requested after M6 from IDM screenshots; checked in the release build, with requ
   - `BabarifyDownloadManager_1.0.0_browser-extension.zip`, 60,615 bytes (extension files only, no keys),
     SHA-256 `6636948e7c43d76b35aaee0bbe8bd5e1e7598f3d9f96e0867784038d8d881a6d`
   - `SHA256SUMS.txt`
+
+### Correction — install tests ran inside the Claude app's container (2026-10-26)
+
+The Claude desktop app is a packaged (MSIX) app. Every program started from Claude, including the installer, BDM and
+the Chrome relaunched with logging, runs inside its container. Windows redirects their writes to `%APPDATA%`,
+`%LOCALAPPDATA%` and `HKCU\Software` into `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\...`, where the
+user's own programs can't see them.
+
+- The installer's behaviour (files, shortcut, uninstall entry, helper registration, uninstall cleanup, data kept) was
+  real, but the results existed only inside that container. Your real Windows had no BDM install, data or browser
+  registration.
+- This explains the recurring "Specified native messaging host not found" in your own Chrome, and why a Chrome
+  restarted from Claude (inside the container) connected while your own restarts didn't. The "Not authorized" error
+  came from mixing the two environments.
+- Fix: your data (7 downloads, settings, media tools) was exported to `E:\BDM Data Export\com.babarify.bdm`
+  (integrity check ok), the container copy was uninstalled, and the real install is done by you from Explorer.
+  The M7 install and browser items are back to "confirm on real Windows".
