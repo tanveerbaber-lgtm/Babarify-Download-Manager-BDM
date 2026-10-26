@@ -49,6 +49,39 @@ pub(super) struct TaskContext {
     pub guard: Arc<crate::net_guard::NetGuard>,
     pub cookies: Arc<crate::cookies::CookieJar>,
     pub headers: Arc<crate::request_headers::HeaderStore>,
+    /// Set (with the cancel token) when the disk watcher stops the download.
+    pub stop_reason: Arc<std::sync::atomic::AtomicU8>,
+}
+
+/// Pauses the download (via its stop reason and cancel token) if the drive
+/// holding `dir` gets nearly full, for downloads that don't reserve their
+/// whole size up front. Stops watching when dropped.
+pub(super) struct DiskWatch(JoinHandle<()>);
+
+impl DiskWatch {
+    pub(super) fn start(ctx: &TaskContext, dir: &Path) -> Self {
+        let (free, reserve, every) = (ctx.cfg.free_space.clone(), ctx.cfg.disk_reserve, ctx.cfg.disk_check_interval);
+        let (cancel, reason, dir) = (ctx.cancel.clone(), ctx.stop_reason.clone(), dir.to_path_buf());
+        Self(tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = cancel.cancelled() => return,
+                    _ = tokio::time::sleep(every) => {}
+                }
+                if free.of(&dir).is_some_and(|n| n < reserve) {
+                    reason.store(super::StopReason::NoSpace as u8, Ordering::Release);
+                    cancel.cancel();
+                    return;
+                }
+            }
+        }))
+    }
+}
+
+impl Drop for DiskWatch {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
 }
 
 /// Downloads `id` to completion. Returns `Err(Stopped)` when cancelled.
@@ -99,6 +132,15 @@ async fn attempt(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     } else {
         download
     };
+
+    // What's still to be written must fit, leaving the reserve free. A
+    // segmented download's file already holds its full size once created.
+    if let Some(total) = remote.total_bytes {
+        let on_disk = download.temp_path.as_deref().and_then(|p| std::fs::metadata(p).ok()).map_or(0, |m| m.len());
+        if let Some(message) = super::disk::shortfall(&dest_dir, total.saturating_sub(on_disk), ctx.cfg.disk_reserve, &ctx.cfg.free_space) {
+            return Err(EngineError::NoSpace(message));
+        }
+    }
 
     let temp = {
         let conn = ctx.db.lock()?;
@@ -315,6 +357,8 @@ async fn single(
 ) -> EngineResult<u64> {
     let source = Arc::new(ProgressSource::single());
     let reporter = Reporter::spawn(ctx, id, source.clone(), remote.total_bytes);
+    // The file grows as it downloads (its size may not even be known).
+    let _watch = DiskWatch::start(ctx, temp.parent().unwrap_or(temp));
     let result = single_loop(ctx, download, remote, temp, &source.single_counter()).await;
     reporter.stop().await;
     persist(&ctx.db, id, &source)?;

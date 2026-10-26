@@ -89,6 +89,9 @@ pub const SIGN_IN_REFUSED: &str =
 pub const UNSUPPORTED_SITE: &str =
     "This website isn't supported for video downloads. Try adding the link as a regular file download.";
 
+/// yt-dlp or FFmpeg ran out of disk space.
+pub const DISK_FULL: &str = "The drive is full. Free up space, then resume this download.";
+
 /// Turns yt-dlp's stderr into a short message. URLs are removed because
 /// they can carry signed tokens.
 pub fn friendly_error(stderr: &[String]) -> String {
@@ -99,7 +102,9 @@ pub fn friendly_error(stderr: &[String]) -> String {
         .unwrap_or_else(|| stderr.iter().rev().map(|l| l.trim()).find(|l| !l.is_empty()).unwrap_or(""));
     let lower = error.to_ascii_lowercase();
 
-    let known = if lower.contains("drm") {
+    let known = if lower.contains("no space left") || lower.contains("not enough space on the disk") || lower.contains("disk full") {
+        Some(DISK_FULL)
+    } else if lower.contains("drm") {
         Some("This media is protected by DRM. BDM doesn't download DRM-protected content.")
     } else if lower.contains("sign in") || lower.contains("login") || lower.contains("log in") || lower.contains("members-only") || lower.contains("cookies") {
         Some(SIGN_IN_NEEDED)

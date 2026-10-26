@@ -649,3 +649,24 @@ With the installed test build and the reloaded extension:
   apart, `bdm://` links can't choose a folder or start, the registered command). Clippy and TypeScript clean. In
   the sample-data preview, queued startup requests opened the New Download dialog and the Batch dialog filled with
   three links. Not run against the installed app (a test build can't run beside your BDM: one copy at a time).
+
+## M8 — Disk-space guard (2026-10-26)
+
+- **Free space** (`engine/disk.rs`): `GetDiskFreeSpaceExW` for the drive holding the folder (its nearest existing
+  parent if the folder doesn't exist yet). BDM always leaves 256 MB free; unknown free space never blocks.
+- **Before a file starts:** once the size is known, the bytes still to be written (size minus what's already on disk;
+  a resumed segmented file already holds its full size) must fit with the reserve, else the download is paused with
+  "Not enough space on E:: this download needs 1.2 GB more and 300 MB is free. Free up space, then resume it."
+- **While running:** single-stream and video downloads (their size is unknown or an estimate) are checked every 2 s;
+  below the reserve they're paused ("Paused: the drive E: is almost full (…)"), progress kept. Segmented files have
+  reserved their full size at the start, so they aren't paused.
+- **Disk full anyway:** Windows' disk-full errors (ERROR_DISK_FULL, ERROR_HANDLE_DISK_FULL) and yt-dlp/FFmpeg's "no
+  space left"/"not enough space on the disk" pause the download with the reason instead of failing it and
+  scheduling automatic retries.
+- **New Download dialog:** checks the chosen folder's drive (again when the folder changes) and warns when the file
+  won't fit.
+- **Checks:** 188 Rust tests (5 new: shortfall message and reserve, a real free-space reading of this PC including a
+  folder that doesn't exist yet, disk-full error codes; an engine test where a 4 MB file with 3 MB free pauses with
+  the sizes before anything but the size probe is fetched; and a single-stream download of unknown size paused when
+  free space drops, then completed byte-exact after resuming). Tests use a stand-in free-space reading so they don't
+  depend on this PC's drive. Clippy and TypeScript clean; the dialog warning checked in the sample-data preview.

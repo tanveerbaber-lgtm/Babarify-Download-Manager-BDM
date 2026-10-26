@@ -535,6 +535,14 @@ pub async fn unregister_browser_integration(state: State<'_, AppState>) -> AppRe
     Ok(registry::status(&state.data_dir))
 }
 
+/// Free space on the drive holding `path` (or its nearest existing parent),
+/// for the New Download dialog's warning. `None` if it can't be measured.
+#[tauri::command]
+pub async fn disk_free_space(path: String) -> AppResult<Option<u64>> {
+    let path = PathBuf::from(path.trim());
+    Ok(if path.is_absolute() { crate::engine::disk::free_space(&path) } else { None })
+}
+
 /// Points an unfinished download at a new link to the same file (when its
 /// link expired), keeping its progress, and resumes it if asked.
 #[tauri::command]

@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
-import { FileArchive, FileAudio, FileText, FileVideo, File, FolderOpen, History, Package, RefreshCw, X, type LucideIcon } from "lucide-react";
+import { FileArchive, FileAudio, FileText, FileVideo, File, FolderOpen, HardDrive, History, Package, RefreshCw, X, type LucideIcon } from "lucide-react";
 import { Modal } from "./Modal";
 import { api } from "../lib/api";
 import { formatBytes, formatDate } from "../lib/format";
@@ -50,6 +50,23 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
   const [queueId, setQueueId] = useState("main");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [free, setFree] = useState<number | null>(null);
+
+  // Free space where it will be saved, checked again when the folder changes.
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      api
+        .diskFreeSpace(folder)
+        .then((n) => !cancelled && setFree(n))
+        .catch(() => !cancelled && setFree(null));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [folder]);
+  const tooBig = proposal.size != null && free != null && proposal.size + DISK_RESERVE > free;
 
   const icons: Record<string, LucideIcon> = { videos: FileVideo, music: FileAudio, documents: FileText, compressed: FileArchive, programs: Package };
   const Icon = isMedia ? (proposal.options?.mode === "audio" ? FileAudio : FileVideo) : (icons[categoryId] ?? File);
@@ -165,6 +182,16 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
           </div>
         )}
 
+        {tooBig && (
+          <p className="notice duplicate">
+            <HardDrive size={15} aria-hidden />
+            <span>
+              Not enough space on this drive: {isMedia ? "it's about" : "it's"} {formatBytes(proposal.size ?? 0)} and {formatBytes(free ?? 0)} is free. Choose another
+              folder, or free up space first.
+            </span>
+          </p>
+        )}
+
         <label className="field">
           <span className="field-label">File name</span>
           <div className="input-row">
@@ -243,6 +270,9 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
     </form>
   );
 }
+
+/** Space BDM always leaves free (engine/disk.rs DEFAULT_RESERVE). */
+const DISK_RESERVE = 256 * 1024 * 1024;
 
 function resumeProgress(d: Download): string {
   const pct = d.totalBytes ? Math.floor((d.downloadedBytes / d.totalBytes) * 100) : null;

@@ -115,6 +115,8 @@ async fn run_inner(ctx: &TaskContext, id: &str, extras: &args::MediaExtras, subt
     };
     std::fs::create_dir_all(&temp_dir)?;
     hide(&temp_dir);
+    // Video sizes are only estimates, so the drive is watched instead.
+    let _watch = super::task::DiskWatch::start(ctx, &dest_dir);
 
     let mut argv = args::download_args(
         &tools,

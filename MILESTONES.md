@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: command line and bdm:// links done (COMMAND_LINE.md); needs a check in the installed app, like the tray features. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8 (BDM 1.1) built: all 7 features. Left: checking the tray/startup/clipboard and command-line/bdm:// features in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 4 | 2 | 7 | In progress |
-| **Total** | **70** | **11** | **82** | |
+| M8 — BDM 1.1 Everyday power | 5 | 2 | 7 | In progress (2 checks in the installed app) |
+| **Total** | **71** | **11** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -305,4 +305,9 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
         queue or silent start; registered per user on each launch of the installed app, removed by the uninstaller
   - [x] Usage in COMMAND_LINE.md
   - [ ] Check in the installed app: `bdm.exe --add …`, a `bdm://` link from the browser, `--import`
-- [ ] Disk-space guard: warn before starting, pause before the drive is full.
+- [x] Disk-space guard: warn before starting, pause before the drive is full.
+  - [x] Before a file starts: what's left to write plus a 256 MB reserve must fit, else it pauses with the sizes
+  - [x] Downloads of unknown size (videos, servers without a size) are watched every 2 s and paused before the drive fills
+  - [x] Windows' "disk full" and yt-dlp's "not enough space" pause the download instead of failing and retrying
+  - [x] The New Download dialog warns when the file won't fit in the chosen folder's drive
+  - [x] Tests with a stand-in free-space reading: paused before fetching anything; paused mid-stream and finished after resuming

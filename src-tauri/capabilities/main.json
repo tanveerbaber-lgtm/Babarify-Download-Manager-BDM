@@ -55,6 +55,7 @@
     "allow-open-download-window",
     "allow-open-legal-document",
     "allow-refresh-download-link",
-    "allow-take-startup-requests"
+    "allow-take-startup-requests",
+    "allow-disk-free-space"
   ]
 }

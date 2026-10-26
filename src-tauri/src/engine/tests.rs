@@ -57,6 +57,10 @@ fn test_config() -> EngineConfig {
         min_segment_size: 64 * 1024,
         progress_interval: Duration::from_millis(50),
         persist_every_ticks: 2,
+        // Free space is "unknown" (never blocks) unless a test sets it, so
+        // tests don't depend on how full this PC's drive is.
+        free_space: super::disk::FreeSpace(Arc::new(|_| None)),
+        disk_check_interval: Duration::from_millis(50),
         ..EngineConfig::default()
     }
 }
@@ -431,6 +435,62 @@ async fn no_scan_when_switched_off() {
     assert_eq!(d.status, DownloadStatus::Completed);
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(h.get(&id).scan_result, None);
+}
+
+/// An engine whose drive reports `free` bytes free (changeable while it runs),
+/// keeping 1 MiB in reserve.
+fn with_free_space(h: &mut Harness, free: Arc<std::sync::atomic::AtomicU64>) {
+    let reading = free.clone();
+    let cfg = EngineConfig {
+        free_space: super::disk::FreeSpace(Arc::new(move |_| Some(reading.load(std::sync::atomic::Ordering::SeqCst)))),
+        disk_reserve: 1024 * 1024,
+        ..test_config()
+    };
+    h.engine = Engine::new(h.db.clone(), h.sink.clone(), cfg, tokio::runtime::Handle::current(), test_tools(&h._db_dir, &h.sink)).unwrap();
+    h.engine.set_limits(3, 8).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_download_that_wont_fit_pauses_before_it_starts() {
+    let mut h = Harness::new().await;
+    with_free_space(&mut h, Arc::new(std::sync::atomic::AtomicU64::new(3 * 1024 * 1024)));
+    h.server.state.add("big.iso", FileSpec::new(test_data(4 * 1024 * 1024, 71)).etag("b"));
+    let id = h.add("/files/big.iso", "big.iso");
+
+    let d = h.wait_status(&id, DownloadStatus::Paused).await;
+    let message = d.error_message.unwrap_or_default();
+    assert!(message.starts_with("Not enough space on"), "{message}");
+    assert!(message.contains("4.0 MB more") && message.contains("3.0 MB is free"), "{message}");
+    assert!(h.temp_files().is_empty(), "nothing was allocated");
+    let fetched: Vec<_> = h.server.state.requests_for("/files/big.iso").into_iter().filter(|l| l.range.as_deref() != Some("bytes=0-0")).collect();
+    assert!(fetched.is_empty(), "only the size probe: {fetched:?}");
+    assert!(h.sink.failed.lock().unwrap().is_empty(), "paused, not failed");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_filling_drive_pauses_a_download_of_unknown_size() {
+    let mut h = Harness::new().await;
+    let free = Arc::new(std::sync::atomic::AtomicU64::new(1 << 40));
+    with_free_space(&mut h, free.clone());
+    let data = test_data(2 * 1024 * 1024, 72);
+    // No ranges and no length: a single stream of unknown size, watched while it runs.
+    h.server.state.add("stream.bin", FileSpec::new(data.clone()).no_ranges().hide_length().delay(Duration::from_millis(20)));
+    let id = h.add("/files/stream.bin", "stream.bin");
+    h.wait_partial(&id).await;
+
+    free.store(512 * 1024, std::sync::atomic::Ordering::SeqCst);
+    let paused = h.wait_status(&id, DownloadStatus::Paused).await;
+    let message = paused.error_message.clone().unwrap_or_default();
+    assert!(message.contains("almost full") && message.contains("512 KB free"), "{message}");
+    assert!(h.sink.failed.lock().unwrap().is_empty());
+
+    // Space freed: resuming finishes it.
+    free.store(1 << 40, std::sync::atomic::Ordering::SeqCst);
+    h.engine.enqueue(&id).unwrap();
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    assert_eq!(d.error_message, None);
 }
 
 fn segments_cleared(h: &Harness, id: &str) -> bool {

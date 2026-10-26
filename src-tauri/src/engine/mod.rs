@@ -8,6 +8,7 @@
 //! State changes are written to the database first and then reported through
 //! an [`EventSink`], so the UI and the database never disagree for long.
 
+pub mod disk;
 pub mod error;
 pub mod events;
 pub mod files;
@@ -60,6 +61,11 @@ pub struct EngineConfig {
     pub tick_interval: Duration,
     /// Virus scanner for finished downloads; Microsoft Defender when `None`.
     pub scanner: Option<std::path::PathBuf>,
+    /// Free-space measurement (tests replace it) and the space always left free.
+    pub free_space: disk::FreeSpace,
+    pub disk_reserve: u64,
+    /// How often a running download of unknown size checks free space.
+    pub disk_check_interval: Duration,
 }
 
 impl Default for EngineConfig {
@@ -76,6 +82,9 @@ impl Default for EngineConfig {
             speed_window: Duration::from_secs(5),
             tick_interval: Duration::from_secs(15),
             scanner: None,
+            free_space: disk::FreeSpace::default(),
+            disk_reserve: disk::DEFAULT_RESERVE,
+            disk_check_interval: Duration::from_secs(2),
         }
     }
 }
@@ -114,6 +123,8 @@ enum StopReason {
     Remove = 3,
     /// Its queue stopped: back to queued, progress kept.
     Requeue = 4,
+    /// The drive is nearly full: paused with a message.
+    NoSpace = 5,
 }
 
 impl StopReason {
@@ -123,6 +134,7 @@ impl StopReason {
             2 => Self::Cancel,
             3 => Self::Remove,
             4 => Self::Requeue,
+            5 => Self::NoSpace,
             _ => Self::None,
         }
     }
@@ -574,6 +586,7 @@ impl Engine {
                 cancel: active.token.clone(),
                 tools: self.inner.tools.clone(),
                 guard: self.inner.guard.clone(),
+                stop_reason: active.reason.clone(),
                 cookies: self.inner.cookies.clone(),
                 headers: self.inner.headers.clone(),
             };
@@ -691,6 +704,15 @@ impl Engine {
             }
             (Err(EngineError::Stopped), StopReason::Requeue) => {
                 downloads::set_status(&conn, id, DownloadStatus::Queued, None)?;
+            }
+            (Err(EngineError::Stopped), StopReason::NoSpace) => {
+                let dir = downloads::require(&conn, id)?.destination_dir;
+                let message = disk::nearly_full(std::path::Path::new(&dir), &self.inner.cfg.free_space);
+                downloads::set_status(&conn, id, DownloadStatus::Paused, Some(&message))?;
+            }
+            // A full disk pauses (with the reason) instead of failing and retrying.
+            (Err(e), _) if e.is_no_space() => {
+                downloads::set_status(&conn, id, DownloadStatus::Paused, Some(&e.user_message()))?;
             }
             (Err(EngineError::Stopped), _) => {
                 downloads::set_status(&conn, id, DownloadStatus::Paused, None)?;

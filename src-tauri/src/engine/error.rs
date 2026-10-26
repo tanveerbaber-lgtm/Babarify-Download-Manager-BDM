@@ -34,6 +34,9 @@ pub enum EngineError {
     /// The address is off limits (local network or reserved); see `net_guard`.
     #[error("{0}")]
     Blocked(String),
+    /// The drive is (nearly) full; the download is paused, not failed.
+    #[error("{0}")]
+    NoSpace(String),
     /// Stopped by pause, cancel or remove.
     #[error("stopped")]
     Stopped,
@@ -66,6 +69,17 @@ impl EngineError {
         }
     }
 
+    /// Whether this failure means the disk is full (BDM's own check, Windows'
+    /// "disk full", or yt-dlp's message for it).
+    pub fn is_no_space(&self) -> bool {
+        match self {
+            Self::NoSpace(_) => true,
+            Self::Io(e) => super::disk::is_disk_full(e),
+            Self::Media(m) => m == crate::media::output::DISK_FULL,
+            _ => false,
+        }
+    }
+
     /// Message shown to the user. Never includes the URL, which may carry tokens.
     pub fn user_message(&self) -> String {
         match self {
@@ -93,6 +107,7 @@ impl EngineError {
             Self::App(e) => e.to_string(),
             Self::Media(m) => m.clone(),
             Self::Blocked(m) => m.clone(),
+            Self::NoSpace(m) => m.clone(),
             Self::Stopped => "Stopped.".into(),
         }
     }
