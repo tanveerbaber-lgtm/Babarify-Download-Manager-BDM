@@ -870,29 +870,6 @@ table.downloads {
 
 /* ---------- Narrow windows ---------- */
 
-@media (max-width: 1000px) {
-  .app {
-    grid-template-columns: 64px 1fr;
-  }
-  .brand-text,
-  .nav-label,
-  .nav-count,
-  .nav-heading {
-    display: none;
-  }
-  .brand,
-  .nav-item {
-    justify-content: center;
-  }
-  .col-speed,
-  .col-eta {
-    width: 0;
-  }
-  .search {
-    width: 180px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -2112,4 +2089,749 @@ code {
 
 .about-links .link-button {
   text-decoration: none;
+}
+
+/* ---------- Compact layout (IDM-style density, 2026-10-26) ----------
+   Everything fits the window: smaller type and controls, tight rows, and a
+   sidebar whose middle scrolls while the brand and Settings stay put. */
+
+body {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.app {
+  grid-template-columns: 204px 1fr;
+  grid-template-rows: 100%;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 8px 8px;
+  gap: 10px;
+}
+
+.brand {
+  gap: 8px;
+  padding: 0 6px;
+}
+
+.brand-name {
+  font-size: 16px;
+}
+
+.brand-sub {
+  font-size: 11px;
+}
+
+.nav {
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: -4px;
+  padding-right: 4px;
+}
+
+.nav-item {
+  gap: 9px;
+  padding: 6px 9px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
+.nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.nav-count {
+  font-size: 11px;
+  padding: 0 6px;
+}
+
+.nav-heading {
+  padding: 10px 6px 3px;
+  font-size: 10.5px;
+}
+
+.nav-heading-action {
+  padding-right: 2px;
+}
+
+.nav-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.nav-fold:hover {
+  color: var(--sidebar-text-strong);
+}
+
+.fold-icon {
+  transition: transform 0.15s;
+}
+
+.fold-icon.folded {
+  transform: rotate(-90deg);
+}
+
+.queue-item .nav-item {
+  padding-right: 30px;
+}
+
+.queue-state {
+  font-size: 10.5px;
+}
+
+.sidebar-footer {
+  flex: none;
+  padding-top: 6px;
+}
+
+/* Top bar */
+.topbar {
+  padding: 10px 16px 8px;
+  gap: 10px;
+}
+
+.topbar h1 {
+  font-size: 18px;
+}
+
+.toolbar {
+  gap: 4px;
+}
+
+.search {
+  height: 30px;
+  width: 210px;
+  margin-right: 4px;
+  font-size: 12.5px;
+}
+
+.button {
+  height: 30px;
+  padding: 0 13px;
+  font-size: 12.5px;
+  gap: 5px;
+}
+
+.button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.toolbar .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.toolbar .icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.button.small {
+  height: 26px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.queue-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+/* Content */
+.content {
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+
+/* Summary: a slim strip of chips instead of tall cards. */
+.stats {
+  gap: 8px;
+}
+
+.stat {
+  padding: 7px 10px;
+  gap: 9px;
+  border-radius: 10px;
+}
+
+.stat-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.stat-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.stat-text {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  flex: 1;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+}
+
+.stat-value {
+  font-size: 17px;
+}
+
+/* Table: tight IDM-like rows. */
+.table-wrap {
+  border-radius: 10px;
+}
+
+.downloads th {
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+
+.downloads td {
+  padding: 5px 10px;
+}
+
+.col-size { width: 120px; }
+.col-progress { width: 140px; }
+.col-status { width: 120px; }
+.col-speed { width: 86px; }
+.col-eta { width: 80px; }
+.col-added { width: 132px; }
+
+.name-cell {
+  gap: 8px;
+}
+
+.file-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.name-text {
+  gap: 0;
+}
+
+.file-name {
+  font-size: 13px;
+}
+
+.file-host {
+  font-size: 11px;
+}
+
+.progress {
+  height: 6px;
+  width: calc(100% - 38px);
+}
+
+.progress-text {
+  font-size: 11.5px;
+}
+
+.status {
+  padding: 2px 8px 2px 3px;
+  font-size: 11.5px;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.downloads .muted,
+.downloads .num {
+  font-size: 12.5px;
+}
+
+.statusbar {
+  padding: 4px 16px;
+  font-size: 11.5px;
+}
+
+/* Empty state */
+.empty h2 {
+  font-size: 16px;
+}
+
+/* Settings page */
+.settings {
+  gap: 12px;
+}
+
+.card {
+  padding: 14px 16px;
+}
+
+.setting-row {
+  padding: 9px 0;
+}
+
+/* Column room for the compact table; the name always keeps some width. */
+.downloads {
+  min-width: 640px;
+}
+
+.col-size { width: 132px; }
+.col-progress { width: 150px; }
+.col-added { width: 128px; }
+
+.progress-text {
+  display: inline-block;
+  width: 34px;
+  text-align: right;
+}
+
+.stat-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-text {
+  min-width: 0;
+}
+
+/* Narrower windows: drop the least important columns first. */
+@media (max-width: 1100px) {
+  .col-added,
+  .downloads th:nth-child(7),
+  .downloads td:nth-child(7) {
+    display: none;
+  }
+}
+
+/* Small windows: the sidebar becomes an icon rail (labels move to tooltips). */
+@media (max-width: 980px) {
+  .app {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .sidebar {
+    padding: 12px 6px 8px;
+  }
+
+  .brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .brand-text,
+  .nav-label,
+  .queue-item .nav-label,
+  .nav-count,
+  .nav-heading,
+  .queue-toggle {
+    display: none;
+  }
+
+  .nav-item,
+  .queue-item .nav-item {
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .nav {
+    margin-right: 0;
+    padding-right: 0;
+  }
+
+  .col-eta,
+  .downloads th:nth-child(6),
+  .downloads td:nth-child(6) {
+    display: none;
+  }
+
+  .search {
+    width: 160px;
+  }
+}
+
+/* ---------- Typography: Arial body, Arial Bold headings and titles ---------- */
+
+h1,
+h2,
+h3,
+.topbar h1,
+.modal h2,
+.card h2,
+.brand-name,
+.setting-title,
+.info-title,
+.media-title,
+.dlw-complete h1,
+.empty h2,
+.stat-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Card headings were small caps-style labels; keep them as bold titles. */
+.card h2 {
+  text-transform: none;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Arial has regular and bold only: keep body text regular rather than in-between weights. */
+.nav-item,
+.file-name,
+.stat-label,
+.button,
+.brand-sub,
+.queue-state {
+  font-weight: 400;
+}
+
+.nav-item[aria-current="page"] {
+  font-weight: 700;
+}
+
+/* Bold Arial chips need a little more room. */
+.col-status { width: 132px; }
+
+
+/* ---------- Compact popups (dialogs, menu, toasts, download window) ----------
+   Same Babarify colours and Arial type, tighter spacing and smaller controls. */
+
+/* Dialog frame */
+.modal {
+  width: min(480px, calc(100vw - 24px));
+  border-radius: 12px;
+}
+
+.add-dialog,
+.batch-dialog,
+.info-dialog {
+  width: min(560px, calc(100vw - 24px));
+}
+
+.confirm-dialog {
+  width: min(380px, calc(100vw - 24px));
+}
+
+.modal-header {
+  padding: 12px 14px 2px 18px;
+}
+
+.modal h2 {
+  font-size: 15px;
+}
+
+.modal-header .icon-button,
+.tabs-close {
+  width: 28px;
+  height: 28px;
+}
+
+.modal-body {
+  gap: 10px;
+  padding: 10px 18px 12px;
+  font-size: 13px;
+}
+
+.modal-footer {
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Tabs inside dialogs */
+.tabs {
+  gap: 2px;
+  padding: 8px 14px 0;
+}
+
+.tabs button {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* Fields */
+.field {
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 12px;
+}
+
+.field input[type="text"],
+.field input[type="url"],
+.input-with-icon,
+.number-input,
+select,
+.time-input {
+  height: 30px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
+.number-input {
+  width: 76px;
+}
+
+.input-with-icon {
+  gap: 6px;
+  padding: 0 9px;
+}
+
+.input-with-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.input-row {
+  gap: 6px;
+}
+
+.field-pair {
+  gap: 10px;
+}
+
+.check {
+  gap: 7px;
+  font-size: 13px;
+}
+
+.check input {
+  width: 15px;
+  height: 15px;
+}
+
+.hint {
+  font-size: 11.5px;
+}
+
+.notice,
+.form-error {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 7px;
+}
+
+.advanced summary {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+
+.links-input {
+  min-height: 96px;
+  font-size: 11.5px;
+}
+
+.batch-preview {
+  padding: 8px 10px;
+  font-size: 11.5px;
+}
+
+.icon-button.bordered {
+  width: 30px;
+  height: 30px;
+}
+
+/* Download File Info */
+.info-head {
+  gap: 10px;
+  padding: 9px 11px;
+}
+
+.info-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+
+.info-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.info-title {
+  font-size: 13.5px;
+}
+
+.info-sub {
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+/* Queue schedule */
+.schedule {
+  gap: 9px;
+  padding: 10px 12px;
+}
+
+.schedule-times {
+  gap: 12px;
+}
+
+.chip {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+
+.day-chips {
+  gap: 5px;
+}
+
+/* Video / audio form */
+.media-body {
+  max-height: min(58vh, 500px);
+}
+
+.media-summary {
+  padding: 9px 11px;
+}
+
+.media-title {
+  font-size: 13.5px;
+}
+
+.format-row {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.playlist li {
+  font-size: 12.5px;
+}
+
+.setup-card {
+  padding: 10px 12px;
+}
+
+/* Right-click menu */
+.context-menu {
+  min-width: 190px;
+  padding: 4px;
+  font-size: 12.5px;
+  border-radius: 9px;
+}
+
+.menu-item {
+  height: 26px;
+  padding: 0 9px 0 3px;
+}
+
+.menu-check {
+  width: 16px;
+}
+
+.menu-sep {
+  margin: 3px 5px;
+}
+
+/* Toasts */
+.toasts {
+  right: 14px;
+  bottom: 34px;
+  gap: 6px;
+}
+
+.toast {
+  max-width: 340px;
+  padding: 7px 6px 7px 11px;
+  font-size: 12.5px;
+  gap: 8px;
+}
+
+.toast .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
+/* Download window */
+.dlw {
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.dlw-tabs button {
+  padding: 5px 9px;
+}
+
+.dlw-panel {
+  min-height: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+}
+
+.dlw-grid {
+  grid-template-columns: 112px 1fr;
+  gap: 5px 10px;
+  font-size: 12.5px;
+}
+
+.dlw-progress {
+  height: 8px;
+}
+
+.dlw-actions {
+  gap: 6px;
+}
+
+.dlw-details {
+  gap: 6px;
+}
+
+.dlw-map-label {
+  font-size: 11.5px;
+}
+
+.dlw-map {
+  height: 12px;
+}
+
+.dlw-table {
+  font-size: 11.5px;
+  border-radius: 8px;
+}
+
+.dlw-table th,
+.dlw-table td {
+  padding: 3px 8px;
+}
+
+.dlw-limit,
+.dlw-done {
+  gap: 9px;
+}
+
+.dlw-complete {
+  gap: 7px;
+}
+
+.dlw-complete h1 {
+  font-size: 17px;
+}
+
+.dlw-complete-icon {
+  width: 36px;
+  height: 36px;
 }

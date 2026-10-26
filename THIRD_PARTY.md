@@ -11,8 +11,7 @@ on request, how each part is kept up to date, and what that means for licensing.
 | --- | --- | --- |
 | Rust crates (Windows x64, normal dependencies) | 315 | All permissive: MIT and/or Apache-2.0 (most), Unicode-3.0, BSD-2/3-Clause, ISC, Zlib, Unlicense, CC0, 0BSD |
 | Rust crates under MPL-2.0 | 5 | `cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`, pulled in by Tauri. MPL-2.0 is file-level copyleft: using them unmodified needs only the notice; changes to those files would have to be published. |
-| npm packages in the UI bundle | 12 | MIT, ISC, Apache-2.0 OR MIT |
-| Montserrat font (`@fontsource-variable/montserrat`) | 1 | SIL Open Font License 1.1: may be bundled and redistributed, not sold on its own |
+| npm packages in the UI bundle | 11 | MIT, ISC, Apache-2.0 OR MIT |
 
 No GPL, AGPL or unknown licenses are in the app itself. The summary comes from `cargo metadata` (normal dependencies
 reachable from `bdm`) and `npm ls --omit=dev`; the full list can be regenerated with `cargo about` or

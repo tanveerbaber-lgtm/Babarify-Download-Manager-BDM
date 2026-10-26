@@ -614,8 +614,8 @@ pub async fn open_download_window(id: String, app: tauri::AppHandle, state: Stat
     }
     tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
         .title(d.title.as_deref().unwrap_or(&d.file_name))
-        .inner_size(600.0, 560.0)
-        .min_inner_size(480.0, 400.0)
+        .inner_size(540.0, 480.0)
+        .min_inner_size(440.0, 360.0)
         .resizable(true)
         .build()
         .map_err(|e| AppError::Internal(format!("couldn't open the download window: {e}")))?;

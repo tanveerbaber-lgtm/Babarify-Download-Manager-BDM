@@ -15,10 +15,10 @@
       {
         "label": "main",
         "title": "Babarify Download Manager",
-        "width": 1200,
-        "height": 760,
-        "minWidth": 860,
-        "minHeight": 560,
+        "width": 1180,
+        "height": 740,
+        "minWidth": 820,
+        "minHeight": 520,
         "center": true
       }
     ],

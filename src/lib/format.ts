@@ -43,8 +43,12 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
+const shortDateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+/** "Oct 26, 3:05 AM" for this year, "Oct 26, 2025, 3:05 AM" otherwise (compact list columns). */
 export function formatDate(epochMs: number): string {
-  return dateFormat.format(new Date(epochMs));
+  const d = new Date(epochMs);
+  return d.getFullYear() === new Date().getFullYear() ? shortDateFormat.format(d) : dateFormat.format(d);
 }
 
 export function progressPercent(downloaded: number, total: number | null): number | null {

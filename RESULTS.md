@@ -374,3 +374,31 @@ user's own programs can't see them.
 You installed `Babarify Download Manager_1.0.0_x64-setup.exe` from Explorer (outside Claude), restored
 `E:\BDM Data Export\com.babarify.bdm` to `%APPDATA%`, started BDM and fully restarted Chrome: the extension connects
 and all downloads are present. Edge on real Windows hasn't been checked yet.
+
+## Fix: size and time left for video downloads (2026-10-26)
+
+- Reported: during a YouTube download the download window showed no File size or Time left (and an empty progress
+  bar) while the first of two streams downloaded.
+- Cause: BDM reported a total only once the sizes of **all** streams were known; the audio stream's size is unknown
+  until it starts.
+- Fix: yt-dlp now also prints its exact-or-approximate size of everything it will download before starting
+  (`%(filesize,filesize_approx)s`). BDM uses it until both streams' exact sizes arrive, and never shows less than
+  what has already arrived. Checked against YouTube (Creative Commons Big Buck Bunny, 399+258): yt-dlp reports
+  155,154,487 bytes up front.
+- Tests: parser and progress-total tests added (142 Rust tests pass).
+
+## Compact UI, Arial typography and compact popups (2026-10-26)
+
+Requested with IDM as a density reference (not copied), keeping the Babarify colours.
+- **Fit:** the sidebar no longer grows past the window (Settings was cut off behind the taskbar); its middle scrolls
+  while the brand and Settings stay put. Show, Queues and Categories fold, and the choice is remembered.
+- **Density:** 13 px body text, 30 px controls, a slim summary strip instead of tall cards, tight table rows, shorter
+  dates ("Oct 26, 2:36 AM"), wider Size/Progress/Status columns so nothing truncates.
+- **Small windows:** under 1100 px the Added column hides; under 980 px the sidebar becomes an icon rail with tooltips
+  and Time left hides; the Name column always keeps its width. Minimum window 820×520.
+- **Typography:** Arial for body text, Arial Bold for headings and titles, in the app, splash, extension popup,
+  options and video panel; the bundled Montserrat font was removed (smaller app, 323 notices).
+- **Popups:** every dialog (Add Download, Download File Info, Batch, Queue, Category, Speed Limit, Confirm, video form),
+  the right-click menu, toasts, the download window (now 540×480) and the extension pages were compacted.
+- Checked in a sample-data preview at 1333×720 (150% scaling), 1050×640 and 900×540, light and dark, plus screenshots
+  of every popup. TypeScript, 9 extension tests, 142 Rust tests and Clippy pass.

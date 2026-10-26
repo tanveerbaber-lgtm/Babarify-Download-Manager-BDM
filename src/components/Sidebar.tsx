@@ -1,5 +1,7 @@
+import { useState } from "react";
 import {
   CalendarClock,
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   Clock,
@@ -68,11 +70,45 @@ function NavButton({
   title?: string;
 }) {
   return (
-    <button type="button" className="nav-item" aria-current={current ? "page" : undefined} onClick={onClick} title={title}>
+    <button type="button" className="nav-item" aria-current={current ? "page" : undefined} onClick={onClick} title={title ?? label}>
       <Icon size={17} aria-hidden />
       <span className="nav-label">{label}</span>
       {count != null && count > 0 && <span className="nav-count">{count}</span>}
     </button>
+  );
+}
+
+type Section = "show" | "queues" | "categories";
+const COLLAPSED_KEY = "bdm.sidebar.collapsed";
+
+function loadCollapsed(): Record<Section, boolean> {
+  try {
+    return { show: false, queues: false, categories: false, ...JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "{}") };
+  } catch {
+    return { show: false, queues: false, categories: false };
+  }
+}
+
+/** A section heading that folds its items away (like IDM's category tree). */
+function SectionHeading({
+  label,
+  collapsed,
+  onToggle,
+  action,
+}: {
+  label: string;
+  collapsed: boolean;
+  onToggle: () => void;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="nav-heading nav-heading-action">
+      <button type="button" className="nav-fold" aria-expanded={!collapsed} onClick={onToggle}>
+        <ChevronDown size={12} className={collapsed ? "fold-icon folded" : "fold-icon"} aria-hidden />
+        {label}
+      </button>
+      {action}
+    </div>
   );
 }
 
@@ -87,10 +123,21 @@ export function describeSchedule(queue: Queue): string {
 
 export function Sidebar({ view, counts, queues, categories, onNavigate, onOpenVideo, onToggleQueue, onEditQueue }: SidebarProps) {
   const others = counts.category[OTHER_CATEGORY] ?? 0;
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const toggle = (section: Section) =>
+    setCollapsed((prev) => {
+      const next = { ...prev, [section]: !prev[section] };
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        // Only a convenience.
+      }
+      return next;
+    });
   return (
     <aside className="sidebar">
       <div className="brand">
-        <Logo size={36} />
+        <Logo size={30} />
         <div className="brand-text">
           <span className="brand-name">Babarify</span>
           <span className="brand-sub">Download Manager</span>
@@ -102,18 +149,22 @@ export function Sidebar({ view, counts, queues, categories, onNavigate, onOpenVi
         <NavButton icon={MonitorPlay} label="Video Downloader" onClick={onOpenVideo} />
         <NavButton icon={Globe} label="Browser Integration" current={view === "browser"} onClick={() => onNavigate("browser")} />
 
-        <div className="nav-heading">Show</div>
-        {FILTERS.map(({ view: v, icon }) => (
+        <SectionHeading label="Show" collapsed={collapsed.show} onToggle={() => toggle("show")} />
+        {!collapsed.show && FILTERS.map(({ view: v, icon }) => (
           <NavButton key={v} icon={icon} label={LIST_VIEW_TITLES[v]} current={view === v} count={counts.status[v]} onClick={() => onNavigate(v)} />
         ))}
 
-        <div className="nav-heading nav-heading-action">
-          <span>Queues</span>
-          <button type="button" className="nav-add" onClick={() => onEditQueue(null)} title="New queue" aria-label="New queue">
-            <Plus size={14} />
-          </button>
-        </div>
-        {queues.map((q) => {
+        <SectionHeading
+          label="Queues"
+          collapsed={collapsed.queues}
+          onToggle={() => toggle("queues")}
+          action={
+            <button type="button" className="nav-add" onClick={() => onEditQueue(null)} title="New queue" aria-label="New queue">
+              <Plus size={14} />
+            </button>
+          }
+        />
+        {!collapsed.queues && queues.map((q) => {
           const current = view === `queue:${q.id}`;
           return (
             <div key={q.id} className="queue-item" aria-current={current ? "page" : undefined}>
@@ -145,8 +196,8 @@ export function Sidebar({ view, counts, queues, categories, onNavigate, onOpenVi
           );
         })}
 
-        <div className="nav-heading">Categories</div>
-        {categories.map((c) => (
+        <SectionHeading label="Categories" collapsed={collapsed.categories} onToggle={() => toggle("categories")} />
+        {!collapsed.categories && categories.map((c) => (
           <NavButton
             key={c.id}
             icon={CATEGORY_ICONS[c.id] ?? Tag}
@@ -156,7 +207,7 @@ export function Sidebar({ view, counts, queues, categories, onNavigate, onOpenVi
             onClick={() => onNavigate(`category:${c.id}`)}
           />
         ))}
-        {others > 0 && (
+        {!collapsed.categories && others > 0 && (
           <NavButton
             icon={FileQuestion}
             label="Other"

@@ -10,7 +10,9 @@
   --brand-gray: #64748b;
   --brand-light-gray: #e2e8f0;
 
-  --font-sans: "Montserrat Variable", "Montserrat", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Arial for body text, Arial Bold for headings and titles (ships with Windows). */
+  --font-sans: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-heading: Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
 
   --radius-sm: 6px;

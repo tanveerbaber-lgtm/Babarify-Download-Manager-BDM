@@ -159,7 +159,7 @@ Extension (MV3) ──sendNativeMessage──▶ bdm-native-host.exe ──named
 
 ## Branding
 
-Brand assets live in `assets/brand/` (SVG mark, app icon) and come from `assets/Babarify Download Manager Brand Guide.png`. Colour tokens are in `src/styles/tokens.css` (`--brand-blue` #2563EB, `--brand-green` #10B981, `--brand-navy` #0F172A, `--brand-gray` #64748B, `--brand-light-gray` #E2E8F0). Montserrat is bundled from `@fontsource-variable/montserrat`. Regenerate icons with `npx tauri icon ../assets/brand/bdm-app-icon.svg -o icons` (in `src-tauri`) and `-p 16,32,48,128` for the extension.
+Brand assets live in `assets/brand/` (SVG mark, app icon) and come from `assets/Babarify Download Manager Brand Guide.png`. Colour tokens are in `src/styles/tokens.css` (`--brand-blue` #2563EB, `--brand-green` #10B981, `--brand-navy` #0F172A, `--brand-gray` #64748B, `--brand-light-gray` #E2E8F0). Text uses Arial (body) and Arial Bold (headings and titles), which ship with Windows, so no font is bundled. Regenerate icons with `npx tauri icon ../assets/brand/bdm-app-icon.svg -o icons` (in `src-tauri`) and `-p 16,32,48,128` for the extension.
 
 **Testing**: `src-tauri/testsupport/server.rs` is an axum server with switchable Range support, ETags, throttling, dropped connections, stalls, redirects and error statuses. It's used by `engine/tests.rs` and by `cargo run --example test_server` for manual checks.
 

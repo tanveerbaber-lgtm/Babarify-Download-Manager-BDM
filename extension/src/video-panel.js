@@ -14,7 +14,7 @@
   // Compact, premium look: frosted navy glass with a fine brand-gradient edge.
   const STYLE = `
     :host { all: initial; }
-    .wrap { position: fixed; z-index: 2147483647; font: 500 12px/1.3 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #e2e8f0; display: none; -webkit-font-smoothing: antialiased; }
+    .wrap { position: fixed; z-index: 2147483647; font: 400 12px/1.3 Arial, "Helvetica Neue", Helvetica, sans-serif; color: #e2e8f0; display: none; -webkit-font-smoothing: antialiased; }
     .wrap.show { display: block; }
     .glass { background: rgba(15, 23, 42, .86); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
     .bar { position: relative; display: flex; align-items: center; gap: 1px; height: ${BAR_HEIGHT}px; padding: 0 3px; border-radius: 999px; box-shadow: 0 4px 14px rgba(2, 6, 23, .35), inset 0 1px 0 rgba(255, 255, 255, .07); }

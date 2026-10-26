@@ -4,7 +4,9 @@
 /// Templates passed to yt-dlp; fields are `|`-separated and `NA` when unknown.
 pub const PROGRESS_TEMPLATE: &str = "download:BDMP|%(progress.status)s|%(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s|%(info.format_id)s";
 pub const POSTPROCESS_TEMPLATE: &str = "postprocess:BDMPP|%(progress.status)s|%(progress.postprocessor)s";
-pub const INFO_TEMPLATE: &str = "before_dl:BDMINFO|%(format_id)s|%(title)s";
+/// The size field is yt-dlp's exact or approximate size of everything it will
+/// download (both streams when video and audio are merged). Title goes last: it may contain `|`.
+pub const INFO_TEMPLATE: &str = "before_dl:BDMINFO|%(format_id)s|%(filesize,filesize_approx)s|%(title)s";
 pub const FILE_TEMPLATE: &str = "after_move:BDMFILE|%(filepath)s";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,8 +21,9 @@ pub enum Line {
     },
     /// A post-processing step started or finished.
     PostProcess { started: bool, name: String },
-    /// Before downloading: the chosen format(s), e.g. "299+140".
-    Info { format_id: String, title: String },
+    /// Before downloading: the chosen format(s), e.g. "299+140", and the
+    /// expected total size if yt-dlp knows or can estimate it.
+    Info { format_id: String, expected_size: Option<u64>, title: String },
     /// The final file path after all processing.
     File(String),
     Other,
@@ -49,8 +52,13 @@ pub fn parse_line(line: &str) -> Line {
             return Line::PostProcess { started: status == "started", name: name.to_string() };
         }
     } else if let Some(rest) = line.strip_prefix("BDMINFO|") {
-        if let Some((format_id, title)) = rest.split_once('|') {
-            return Line::Info { format_id: format_id.to_string(), title: title.to_string() };
+        let f: Vec<&str> = rest.splitn(3, '|').collect();
+        if f.len() == 3 {
+            return Line::Info {
+                format_id: f[0].to_string(),
+                expected_size: num::<f64>(f[1]).map(|s| s as u64).filter(|s| *s > 0),
+                title: f[2].to_string(),
+            };
         }
     } else if let Some(path) = line.strip_prefix("BDMFILE|") {
         return Line::File(path.to_string());
@@ -163,8 +171,12 @@ mod tests {
     fn parses_other_lines() {
         assert_eq!(parse_line("BDMPP|started|Merger"), Line::PostProcess { started: true, name: "Merger".into() });
         assert_eq!(
-            parse_line("BDMINFO|299+140|Big | Buck"),
-            Line::Info { format_id: "299+140".into(), title: "Big | Buck".into() }
+            parse_line("BDMINFO|299+140|1234567.8|Big | Buck"),
+            Line::Info { format_id: "299+140".into(), expected_size: Some(1234567), title: "Big | Buck".into() }
+        );
+        assert_eq!(
+            parse_line("BDMINFO|18|NA|Clip"),
+            Line::Info { format_id: "18".into(), expected_size: None, title: "Clip".into() }
         );
         assert_eq!(parse_line("BDMFILE|C:\\dl\\a [b].mp4\r"), Line::File("C:\\dl\\a [b].mp4".into()));
         assert_eq!(parse_line("[download] something"), Line::Other);

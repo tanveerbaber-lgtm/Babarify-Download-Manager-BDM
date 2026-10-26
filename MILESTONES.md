@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — Real install confirmed by you: installed from Explorer, data restored, Chrome connects, downloads intact. Open: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — UI refresh in 1.0.0: compact IDM-style layout that fits the window, Arial typography, compact popups, and the video size/time-left fix. Open: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -23,6 +23,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 Build the application shell and establish the project architecture.
 - [x] Initialize Tauri 2, React, TypeScript, Vite and Rust.
 - [x] Create Babarify branding, application icon and professional UI.
+  - [x] Compact layout, Arial / Arial Bold typography and compact popups (2026-10-26)
   - [x] Refreshed from the Brandboard (2026-10-25): glossy "B" app icon (all sizes, ICO), logo, splash screen, pill buttons,
         status chips with icons, gradient progress bars, stat cards with icon tiles, extension icons and panel logo
 - [x] Implement dashboard, sidebar, navigation and download table.

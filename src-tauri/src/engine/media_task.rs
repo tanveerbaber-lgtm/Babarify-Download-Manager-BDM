@@ -152,8 +152,9 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
             stderr_tail.push(line.clone());
         }
         match parse_line(&line) {
-            Line::Info { format_id, title } => {
+            Line::Info { format_id, expected_size, title } => {
                 state.set_streams(&format_id);
+                state.expected = expected_size;
                 if !title.is_empty() {
                     let conn = ctx.db.lock()?;
                     conn.execute("UPDATE downloads SET title = ?2 WHERE id = ?1", rusqlite::params![id, title])
@@ -222,6 +223,8 @@ struct MediaProgress {
     per_stream: HashMap<String, (u64, Option<u64>)>,
     stage: Option<String>,
     meter: SpeedMeter,
+    /// yt-dlp's (approximate) size of all streams, known before they start.
+    expected: Option<u64>,
 }
 
 impl MediaProgress {
@@ -231,6 +234,7 @@ impl MediaProgress {
             per_stream: HashMap::new(),
             stage: None,
             meter: SpeedMeter::new(window),
+            expected: None,
         }
     }
 
@@ -263,13 +267,12 @@ impl MediaProgress {
         self.per_stream.values().map(|(d, _)| *d).sum()
     }
 
-    /// Total of all streams, once every expected stream has a known size.
+    /// Total of all streams: exact once every stream's size is known, until
+    /// then yt-dlp's estimate (never less than what has already arrived).
     fn total(&self) -> Option<u64> {
-        let expected = self.streams.len().max(1);
-        if self.per_stream.len() < expected {
-            return None;
-        }
-        self.per_stream.values().map(|(_, t)| *t).sum()
+        let streams = self.streams.len().max(1);
+        let exact = if self.per_stream.len() >= streams { self.per_stream.values().map(|(_, t)| *t).sum() } else { None };
+        exact.or_else(|| self.expected.map(|e| e.max(self.downloaded())))
     }
 }
 
@@ -345,6 +348,23 @@ mod tests {
         assert_eq!(p.stage.as_deref(), Some("Downloading stream 2 of 2"));
         assert_eq!(p.downloaded(), 110);
         assert_eq!(p.total(), Some(140));
+    }
+
+    #[test]
+    fn estimate_fills_in_until_every_stream_is_known() {
+        let mut p = MediaProgress::new(Duration::from_secs(5));
+        p.set_streams("299+140");
+        p.expected = Some(1000);
+        p.update("299", Some(100), Some(900), false);
+        assert_eq!(p.total(), Some(1000), "audio size unknown: use yt-dlp's estimate");
+        p.update("299", Some(900), Some(900), true);
+        p.update("140", Some(10), Some(120), false);
+        assert_eq!(p.total(), Some(1020), "both known: exact sum wins");
+        let mut q = MediaProgress::new(Duration::from_secs(5));
+        q.set_streams("299+140");
+        q.expected = Some(50);
+        q.update("299", Some(80), None, false);
+        assert_eq!(q.total(), Some(80), "an estimate never shows less than what arrived");
     }
 
     #[test]
