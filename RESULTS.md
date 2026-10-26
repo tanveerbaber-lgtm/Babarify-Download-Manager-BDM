@@ -402,3 +402,13 @@ Requested with IDM as a density reference (not copied), keeping the Babarify col
   the right-click menu, toasts, the download window (now 540×480) and the extension pages were compacted.
 - Checked in a sample-data preview at 1333×720 (150% scaling), 1050×640 and 900×540, light and dark, plus screenshots
   of every popup. TypeScript, 9 extension tests, 142 Rust tests and Clippy pass.
+
+### Release v1.0.0 updated (2026-10-26)
+
+- Tag `v1.0.0` moved from `0976427` to `c76d542` (compact UI, Arial, compact popups, video size fix) and force-pushed.
+- Release assets replaced (sizes match the local builds):
+  - `BabarifyDownloadManager_1.0.0_x64-setup.exe`, 3,286,012 bytes,
+    SHA-256 `9cb93851e979a19ebd767fa43c61228dcecb4fb1b2be4ed170149516abadb14b`
+  - `BabarifyDownloadManager_1.0.0_browser-extension.zip`, 60,911 bytes,
+    SHA-256 `71a4ec5b105b7488ab4c693f36472bc60bbe946c14cc07288b8e9ebc5c325b8a`
+  - `SHA256SUMS.txt`; release notes updated for the new look and the video fix.
