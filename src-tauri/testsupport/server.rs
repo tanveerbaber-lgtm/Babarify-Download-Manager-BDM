@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -34,6 +34,9 @@ pub struct FileSpec {
     pub stall_times: AtomicU32,
     /// Delay before each 16 KiB chunk.
     pub chunk_delay: Duration,
+    /// Extra delay per chunk for requests whose range starts exactly here,
+    /// like one slow connection among several fast ones.
+    pub slow_start: Option<(usize, Duration)>,
 }
 
 impl FileSpec {
@@ -47,6 +50,7 @@ impl FileSpec {
             drop_times: AtomicU32::new(0),
             stall_times: AtomicU32::new(0),
             chunk_delay: Duration::ZERO,
+            slow_start: None,
         }
     }
     pub fn no_ranges(self) -> Self {
@@ -74,6 +78,10 @@ impl FileSpec {
         self.chunk_delay = per_chunk;
         self
     }
+    pub fn slow_from(mut self, start: usize, per_chunk: Duration) -> Self {
+        self.slow_start = Some((start, per_chunk));
+        self
+    }
     /// Replaces the content and ETag, as if the file changed on the server.
     pub fn replace(&self, data: Vec<u8>, etag: &str) {
         *self.data.lock().unwrap() = Arc::new(data);
@@ -87,6 +95,14 @@ pub struct Logged {
     pub range: Option<String>,
     pub if_range: Option<String>,
     pub cookie: Option<String>,
+    /// Body bytes actually handed to the connection (a client may stop early).
+    pub sent: Arc<AtomicUsize>,
+}
+
+impl Logged {
+    pub fn sent(&self) -> usize {
+        self.sent.load(Ordering::SeqCst)
+    }
 }
 
 #[derive(Default)]
@@ -207,11 +223,13 @@ async fn serve_file(
     let get_header = |h: header::HeaderName| headers.get(h).and_then(|v| v.to_str().ok()).map(str::to_owned);
     let range_header = get_header(header::RANGE);
     let if_range = get_header(header::IF_RANGE);
+    let sent = Arc::new(AtomicUsize::new(0));
     state.log.lock().unwrap().push(Logged {
         path: format!("/files/{name}"),
         range: range_header.clone(),
         if_range: if_range.clone(),
         cookie: get_header(header::COOKIE),
+        sent: sent.clone(),
     });
 
     let Some(spec) = state.files.lock().unwrap().get(&name).cloned() else {
@@ -242,9 +260,9 @@ async fn serve_file(
 
     let drop_at = spec.drop_after.filter(|&n| body_len > n && take_one(&spec.drop_times));
     let stall = body_len > CHUNK && take_one(&spec.stall_times);
-    let delay = spec.chunk_delay;
+    let delay = spec.chunk_delay + spec.slow_start.filter(|(at, _)| *at == start).map_or(Duration::ZERO, |(_, d)| d);
 
-    let stream = async_stream(data, start, end, drop_at, stall, delay);
+    let stream = async_stream(data, start, end, drop_at, stall, delay, sent);
     let mut resp = Response::builder().status(status);
     let h = resp.headers_mut().unwrap();
     // Like a real download server: browsers save these instead of showing them.
@@ -274,9 +292,11 @@ fn async_stream(
     drop_at: Option<usize>,
     stall: bool,
     delay: Duration,
+    counted: Arc<AtomicUsize>,
 ) -> impl futures_util::Stream<Item = Result<Bytes, std::io::Error>> {
     futures_util::stream::unfold((start, 0usize, false), move |(pos, sent, done)| {
         let data = data.clone();
+        let counted = counted.clone();
         async move {
             if done || pos >= end {
                 return None;
@@ -297,6 +317,7 @@ fn async_stream(
                 n = n.min(limit - sent).max(1);
             }
             let chunk = Bytes::copy_from_slice(&data[pos..pos + n]);
+            counted.fetch_add(n, Ordering::SeqCst);
             Some((Ok(chunk), (pos + n, sent + n, false)))
         }
     })

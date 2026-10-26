@@ -3,8 +3,8 @@
 use std::future::Future;
 use std::io::SeekFrom;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
@@ -30,6 +30,10 @@ use crate::models::{Download, DownloadKind, DownloadStatus, Segment};
 const WRITE_BUFFER: usize = 128 * 1024;
 /// Slow connections still flush at least this often so progress stays live.
 const MAX_FLUSH_INTERVAL: Duration = Duration::from_millis(200);
+/// Room left in front of a connection whose range is split: more than it can
+/// have buffered or in flight, so the part handed over is never one it's
+/// still writing.
+const SPLIT_GUARD: u64 = 2 * WRITE_BUFFER as u64;
 
 pub(super) struct TaskContext {
     pub db: Arc<Database>,
@@ -171,31 +175,28 @@ async fn segmented(
     total: u64,
 ) -> EngineResult<u64> {
     let mut segs = downloads::segments(&*ctx.db.lock()?, id)?;
+    segs.sort_by_key(|s| s.start);
     let file_ok = std::fs::metadata(temp).is_ok_and(|m| m.len() == total);
-    let layout_ok = file_ok
-        && segs.first().is_some_and(|s| s.start == 0)
-        && segs.last().is_some_and(|s| s.end + 1 == total);
-    if !layout_ok {
+    if !(file_ok && covers(&segs, total)) {
         segs = plan_segments(total, ctx.segments_per_download, ctx.cfg.min_segment_size);
         let file = std::fs::OpenOptions::new().create(true).write(true).truncate(true).open(temp)?;
         file.set_len(total)?;
         downloads::replace_segments(&*ctx.db.lock()?, id, &segs)?;
     }
 
-    let source = Arc::new(ProgressSource {
-        counters: segs.iter().map(|s| AtomicU64::new(s.downloaded.min(s.len()))).collect(),
-        segment_idx: segs.iter().map(|s| s.idx).collect(),
-        layout: segs.iter().map(|s| (s.start, s.len())).collect(),
-    });
-    let connections = segs.iter().filter(|s| s.remaining() > 0).count() as u32;
-    let reporter = Reporter::spawn(ctx, id, source.clone(), Some(total), connections);
+    let source = Arc::new(ProgressSource::segmented(&segs));
+    let reporter = Reporter::spawn(ctx, id, source.clone(), Some(total));
 
+    // As many connections as a fresh plan would use, so a resumed download
+    // with one big range left is spread out again.
+    let planned = plan_segments(total, ctx.segments_per_download, ctx.cfg.min_segment_size).len();
+    let unfinished = segs.iter().filter(|s| s.remaining() > 0).count();
     let stop = ctx.cancel.child_token();
-    let workers = segs.iter().enumerate().filter(|(_, s)| s.remaining() > 0).map(|(i, seg)| {
+    let workers = (0..planned.max(unfinished)).map(|_| {
         let source = source.clone();
         let stop = stop.clone();
         async move {
-            let result = segment_worker(ctx, remote, temp, *seg, &source.counters[i], &stop).await;
+            let result = segment_worker(ctx, remote, temp, &source, &stop).await;
             if result.is_err() {
                 // One fatal failure stops the other connections.
                 stop.cancel();
@@ -221,25 +222,40 @@ async fn segmented(
     Ok(total)
 }
 
+/// Whether saved segments cover `0..total` exactly once, in order of start.
+fn covers(segs: &[Segment], total: u64) -> bool {
+    segs.first().is_some_and(|s| s.start == 0)
+        && segs.last().is_some_and(|s| s.end + 1 == total)
+        && segs.windows(2).all(|w| w[0].end + 1 == w[1].start)
+        && segs.iter().all(|s| s.start <= s.end && s.downloaded <= s.len())
+}
+
+/// One connection: downloads its range, then takes more work until none is left.
 async fn segment_worker(
     ctx: &TaskContext,
     remote: &RemoteFile,
     temp: &Path,
-    seg: Segment,
-    counter: &AtomicU64,
+    source: &ProgressSource,
     stop: &CancellationToken,
 ) -> EngineResult<()> {
+    let Some(mut slot) = source.take_work(ctx.cfg.min_segment_size) else { return Ok(()) };
     let mut failures = 0;
     loop {
-        let before = counter.load(Ordering::Acquire);
-        if before >= seg.len() {
-            return Ok(());
+        if slot.remaining() == 0 {
+            match source.take_work(ctx.cfg.min_segment_size) {
+                Some(next) => {
+                    slot = next;
+                    failures = 0;
+                }
+                None => return Ok(()),
+            }
+            continue;
         }
-        let from = seg.start + before;
-        match fetch_range(ctx, remote, temp, from, seg.end, counter, stop).await {
+        let before = slot.done();
+        match fetch_range(ctx, remote, temp, &slot, stop).await {
             Ok(()) => failures = 0,
             Err(e) if e.is_retryable() && failures < ctx.max_retries => {
-                if counter.load(Ordering::Acquire) > before {
+                if slot.done() > before {
                     failures = 0;
                 }
                 failures += 1;
@@ -250,15 +266,17 @@ async fn segment_worker(
     }
 }
 
+/// Downloads the rest of `slot`. Its end is read again for every chunk, so
+/// the request stops early if another connection took over its back part.
 async fn fetch_range(
     ctx: &TaskContext,
     remote: &RemoteFile,
     temp: &Path,
-    from: u64,
-    end: u64,
-    counter: &AtomicU64,
+    slot: &Slot,
     stop: &CancellationToken,
 ) -> EngineResult<()> {
+    let from = slot.start + slot.done();
+    let end = slot.end();
     let mut req = remote.get(&ctx.client).header(RANGE, format!("bytes={from}-{end}"));
     if let Some(validator) = remote.if_range() {
         req = req.header(IF_RANGE, validator);
@@ -279,9 +297,8 @@ async fn fetch_range(
 
     let mut file = tokio::fs::OpenOptions::new().write(true).open(temp).await?;
     file.seek(SeekFrom::Start(from)).await?;
-    let wanted = end - from + 1;
-    let written = copy_body(resp, &mut file, counter, Some(wanted), &ctx.limits, stop).await?;
-    if written < wanted {
+    copy_body(resp, &mut file, &slot.done, || Some((slot.end() + 1).saturating_sub(from)), &ctx.limits, stop).await?;
+    if slot.remaining() > 0 {
         return Err(EngineError::premature_end());
     }
     Ok(())
@@ -296,9 +313,9 @@ async fn single(
     remote: &RemoteFile,
     temp: &Path,
 ) -> EngineResult<u64> {
-    let source = Arc::new(ProgressSource { counters: vec![AtomicU64::new(0)], segment_idx: Vec::new(), layout: Vec::new() });
-    let reporter = Reporter::spawn(ctx, id, source.clone(), remote.total_bytes, 1);
-    let result = single_loop(ctx, download, remote, temp, &source.counters[0]).await;
+    let source = Arc::new(ProgressSource::single());
+    let reporter = Reporter::spawn(ctx, id, source.clone(), remote.total_bytes);
+    let result = single_loop(ctx, download, remote, temp, &source.single_counter()).await;
     reporter.stop().await;
     persist(&ctx.db, id, &source)?;
     result?;
@@ -343,7 +360,7 @@ async fn single_loop(
                 _ => http::ensure_success(&resp)?,
             }
             let limit = remote.total_bytes.map(|t| t.saturating_sub(from));
-            copy_body(resp, &mut file, counter, limit, &ctx.limits, &ctx.cancel).await?;
+            copy_body(resp, &mut file, counter, || limit, &ctx.limits, &ctx.cancel).await?;
             if let Some(total) = remote.total_bytes
                 && counter.load(Ordering::Acquire) < total
             {
@@ -380,13 +397,13 @@ async fn send(req: reqwest::RequestBuilder, stop: &CancellationToken) -> EngineR
 }
 
 /// Streams a response body into `file`, adding written bytes to `counter`.
-/// Stops after `limit` bytes if given and keeps under the speed limits.
-/// Returns the number of bytes written.
+/// Stops after `limit()` bytes if given (read again for every chunk, as it
+/// can shrink) and keeps under the speed limits. Returns the bytes written.
 async fn copy_body(
     resp: Response,
     file: &mut tokio::fs::File,
     counter: &AtomicU64,
-    limit: Option<u64>,
+    limit: impl Fn() -> Option<u64>,
     speed: &Limits,
     stop: &CancellationToken,
 ) -> EngineResult<u64> {
@@ -396,7 +413,7 @@ async fn copy_body(
     let mut last_flush = Instant::now();
 
     loop {
-        if limit.is_some_and(|l| written + buf.len() as u64 >= l) {
+        if limit().is_some_and(|l| written + buf.len() as u64 >= l) {
             break;
         }
         let next = tokio::select! {
@@ -417,8 +434,8 @@ async fn copy_body(
                 });
             }
         };
-        let take = match limit {
-            Some(l) => chunk.len().min((l - written - buf.len() as u64) as usize),
+        let take = match limit() {
+            Some(l) => chunk.len().min(l.saturating_sub(written + buf.len() as u64) as usize),
             None => chunk.len(),
         };
         buf.extend_from_slice(&chunk[..take]);
@@ -528,38 +545,135 @@ async fn finish(
 
 // ---------------------------------------------------------------- progress
 
+/// One connection's byte range. `end` only ever moves earlier, when an idle
+/// connection takes over the back part of the range.
+struct Slot {
+    idx: u32,
+    start: u64,
+    end: AtomicU64,
+    /// Bytes written from `start`; can briefly pass `end` after a split, by
+    /// bytes the other connection also writes (the same data).
+    done: AtomicU64,
+    /// A connection is working on this range.
+    claimed: AtomicBool,
+}
+
+impl Slot {
+    fn new(idx: u32, start: u64, end: u64, done: u64) -> Self {
+        Self { idx, start, end: AtomicU64::new(end), done: AtomicU64::new(done), claimed: AtomicBool::new(false) }
+    }
+
+    fn end(&self) -> u64 {
+        self.end.load(Ordering::Acquire)
+    }
+
+    fn len(&self) -> u64 {
+        self.end() - self.start + 1
+    }
+
+    fn done(&self) -> u64 {
+        self.done.load(Ordering::Acquire).min(self.len())
+    }
+
+    fn remaining(&self) -> u64 {
+        self.len() - self.done()
+    }
+}
+
 struct ProgressSource {
-    counters: Vec<AtomicU64>,
-    /// Segment index per counter; empty for single-stream downloads.
-    segment_idx: Vec<u32>,
-    /// (start, length) per counter; empty for single-stream downloads.
-    layout: Vec<(u64, u64)>,
+    slots: Mutex<Vec<Arc<Slot>>>,
+    /// Single-stream downloads have one counter and no byte ranges.
+    segmented: bool,
 }
 
 impl ProgressSource {
+    fn segmented(segs: &[Segment]) -> Self {
+        let slots = segs.iter().map(|s| Arc::new(Slot::new(s.idx, s.start, s.end, s.downloaded.min(s.len())))).collect();
+        Self { slots: Mutex::new(slots), segmented: true }
+    }
+
+    fn single() -> Self {
+        Self { slots: Mutex::new(vec![Arc::new(Slot::new(0, 0, u64::MAX - 1, 0))]), segmented: false }
+    }
+
+    fn slots(&self) -> Vec<Arc<Slot>> {
+        self.slots.lock().map(|s| s.clone()).unwrap_or_default()
+    }
+
+    fn single_counter(&self) -> Arc<SingleCounter> {
+        Arc::new(SingleCounter(self.slots()[0].clone()))
+    }
+
     fn total(&self) -> u64 {
-        self.counters.iter().map(|c| c.load(Ordering::Acquire)).sum()
+        let slots = self.slots();
+        if self.segmented { slots.iter().map(|s| s.done()).sum() } else { slots[0].done.load(Ordering::Acquire) }
+    }
+
+    /// Connections downloading right now.
+    fn connections(&self) -> u32 {
+        if !self.segmented {
+            return 1;
+        }
+        self.slots().iter().filter(|s| s.claimed.load(Ordering::Acquire) && s.remaining() > 0).count() as u32
     }
 
     fn views(&self) -> Vec<SegmentView> {
-        self.layout
-            .iter()
-            .zip(&self.counters)
-            .map(|(&(start, len), c)| SegmentView { start, len, done: c.load(Ordering::Acquire).min(len) })
-            .collect()
+        if !self.segmented {
+            return Vec::new();
+        }
+        let mut slots = self.slots();
+        slots.sort_by_key(|s| s.start);
+        slots.iter().map(|s| SegmentView { start: s.start, len: s.len(), done: s.done() }).collect()
     }
 
-    fn segment_progress(&self) -> Vec<(u32, u64)> {
-        self.segment_idx
-            .iter()
-            .zip(&self.counters)
-            .map(|(idx, c)| (*idx, c.load(Ordering::Acquire)))
-            .collect()
+    /// The current layout, for saving.
+    fn snapshot(&self) -> Vec<Segment> {
+        self.slots().iter().map(|s| Segment { idx: s.idx, start: s.start, end: s.end(), downloaded: s.done() }).collect()
+    }
+
+    /// The next range for an idle connection: an unclaimed unfinished one, or
+    /// else the back half of the range with the most left (dynamic
+    /// segmentation). `None` when no split would leave both parts at least
+    /// `min_split` bytes.
+    fn take_work(&self, min_split: u64) -> Option<Arc<Slot>> {
+        let mut slots = self.slots.lock().ok()?;
+        if let Some(free) = slots.iter().find(|s| s.remaining() > 0 && !s.claimed.load(Ordering::Acquire)) {
+            free.claimed.store(true, Ordering::Release);
+            return Some(free.clone());
+        }
+        let victim = slots.iter().filter(|s| s.claimed.load(Ordering::Acquire)).max_by_key(|s| s.remaining())?.clone();
+        let reserve = victim.start + victim.done.load(Ordering::Acquire) + SPLIT_GUARD;
+        let end = victim.end();
+        if end < reserve || end - reserve < 2 * min_split.max(1) {
+            return None;
+        }
+        let split = reserve + (end - reserve) / 2;
+        victim.end.store(split, Ordering::Release);
+        let idx = slots.iter().map(|s| s.idx).max().unwrap_or(0) + 1;
+        let taken = Arc::new(Slot::new(idx, split + 1, end, 0));
+        taken.claimed.store(true, Ordering::Release);
+        slots.push(taken.clone());
+        Some(taken)
+    }
+}
+
+/// The single-stream counter, borrowed as an `AtomicU64`.
+struct SingleCounter(Arc<Slot>);
+
+impl std::ops::Deref for SingleCounter {
+    type Target = AtomicU64;
+    fn deref(&self) -> &AtomicU64 {
+        &self.0.done
     }
 }
 
 fn persist(db: &Database, id: &str, source: &ProgressSource) -> EngineResult<()> {
-    downloads::save_progress(&*db.lock()?, id, &source.segment_progress(), source.total())?;
+    let conn = db.lock()?;
+    // The whole layout is saved, since splits change the ranges.
+    if source.segmented {
+        downloads::replace_segments(&conn, id, &source.snapshot())?;
+    }
+    downloads::save_progress(&conn, id, &[], source.total())?;
     Ok(())
 }
 
@@ -571,13 +685,7 @@ struct Reporter {
 }
 
 impl Reporter {
-    fn spawn(
-        ctx: &TaskContext,
-        id: &str,
-        source: Arc<ProgressSource>,
-        total: Option<u64>,
-        connections: u32,
-    ) -> Self {
+    fn spawn(ctx: &TaskContext, id: &str, source: Arc<ProgressSource>, total: Option<u64>) -> Self {
         let stop = CancellationToken::new();
         let (db, sink, cfg, id) = (ctx.db.clone(), ctx.sink.clone(), ctx.cfg.clone(), id.to_string());
         let token = stop.clone();
@@ -594,7 +702,7 @@ impl Reporter {
                     total_bytes: total,
                     speed,
                     eta_seconds: eta_seconds(done, total, speed),
-                    connections,
+                    connections: source.connections(),
                     stage: None,
                     segments: source.views(),
                 });
@@ -638,6 +746,50 @@ mod tests {
             assert_eq!(segs.iter().map(Segment::len).sum::<u64>(), total);
             assert!(segs.len() as u64 <= u64::from(wanted));
         }
+    }
+
+    #[test]
+    fn idle_connections_take_over_the_largest_range() {
+        let mb = 1024 * 1024;
+        let source = ProgressSource::segmented(&plan_segments(8 * mb, 2, mb));
+        let a = source.take_work(mb).unwrap();
+        let b = source.take_work(mb).unwrap();
+        assert_eq!((a.start, b.start), (0, 4 * mb), "unclaimed ranges first");
+        a.done.store(4 * mb, Ordering::Release);
+        b.done.store(mb, Ordering::Release);
+
+        // A finished connection takes the back half of what b has left.
+        let c = source.take_work(mb).unwrap();
+        let reserve = 5 * mb + SPLIT_GUARD;
+        assert_eq!(b.end(), reserve + (8 * mb - 1 - reserve) / 2);
+        assert_eq!((c.start, c.end()), (b.end() + 1, 8 * mb - 1));
+        let mut layout = source.snapshot();
+        layout.sort_by_key(|s| s.start);
+        assert!(covers(&layout, 8 * mb), "{layout:?}");
+        assert_eq!(source.total(), 5 * mb);
+
+        // Nothing is split into pieces smaller than the minimum.
+        b.done.store(b.len() - 1, Ordering::Release);
+        c.done.store(c.len() - mb / 2, Ordering::Release);
+        assert!(source.take_work(mb).is_none());
+    }
+
+    #[test]
+    fn bytes_past_a_moved_end_are_not_counted_twice() {
+        let source = ProgressSource::segmented(&[Segment { idx: 0, start: 0, end: 99, downloaded: 0 }]);
+        let s = source.take_work(1).unwrap();
+        s.done.store(150, Ordering::Release);
+        assert_eq!(s.done(), 100);
+        assert_eq!(source.total(), 100);
+    }
+
+    #[test]
+    fn saved_layouts_must_cover_the_file() {
+        let seg = |start, end| Segment { idx: 0, start, end, downloaded: 0 };
+        assert!(covers(&[seg(0, 9), seg(10, 19)], 20));
+        assert!(!covers(&[seg(0, 9), seg(11, 19)], 20), "gap");
+        assert!(!covers(&[seg(0, 10), seg(10, 19)], 20), "overlap");
+        assert!(!covers(&[seg(0, 9)], 20), "short");
     }
 
     #[test]

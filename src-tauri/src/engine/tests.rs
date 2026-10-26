@@ -200,20 +200,16 @@ fn sha256_hex(data: &[u8]) -> String {
     hex::encode(sha2::Sha256::digest(data))
 }
 
-/// Total bytes requested by ranged GETs (excluding the 1-byte probe).
-fn bytes_requested(log: &[server::Logged], total: usize) -> usize {
-    log.iter()
-        .filter_map(|l| l.range.as_deref())
-        .filter(|r| *r != "bytes=0-0")
-        .map(|r| {
-            let spec = r.trim_start_matches("bytes=");
-            let (s, e) = spec.split_once('-').unwrap();
-            let s: usize = s.parse().unwrap();
-            let e: usize = if e.is_empty() { total - 1 } else { e.parse().unwrap() };
-            e - s + 1
-        })
-        .sum()
+/// Body bytes the server actually sent (excluding the 1-byte probe). Ranges
+/// in request headers would overstate it: a connection whose range was
+/// split stops before the end it asked for.
+fn bytes_sent(log: &[server::Logged]) -> usize {
+    log.iter().filter(|l| l.range.as_deref() != Some("bytes=0-0")).map(server::Logged::sent).sum()
 }
+
+/// What a resumed download may fetch beyond what was missing: a few chunks
+/// sent to a connection just before its range was split.
+const SPLIT_OVERLAP: usize = 512 * 1024;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn downloads_without_range_support_as_single_stream() {
@@ -244,7 +240,7 @@ async fn segmented_download_reassembles_exactly() {
 
     let ranged: Vec<_> = h.server.state.requests_for("/files/seg.bin").into_iter()
         .filter(|l| l.range.as_deref().is_some_and(|r| r != "bytes=0-0")).collect();
-    assert_eq!(ranged.len(), 8, "expected one request per segment");
+    assert!(ranged.len() >= 8, "at least one request per planned segment, more where ranges were split");
     assert!(ranged.iter().all(|l| l.if_range.as_deref() == Some("\"v1\"")));
     assert!(segments_cleared(&h, &id));
 }
@@ -275,6 +271,58 @@ async fn sends_browser_sign_in_cookies_only_to_their_site() {
     let log = h.server.state.requests_for("/files/member.bin");
     assert!(log.len() > 1, "probe plus segment requests");
     assert!(log.iter().all(|l| l.cookie.as_deref() == Some("session=v")), "{log:?}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn idle_connections_take_over_a_slow_ones_range() {
+    let h = Harness::new().await;
+    let total = 16 * 1024 * 1024;
+    let data = test_data(total, 41);
+    // 8 planned ranges of 2 MiB; the one starting at 4 MiB gets a slow connection
+    // (2 MiB at 16 KiB per 40 ms is over 5 s on its own).
+    let slow_at = 4 * 1024 * 1024;
+    h.server.state.add("dyn.bin", FileSpec::new(data.clone()).etag("d1").slow_from(slow_at, Duration::from_millis(40)));
+    let started = Instant::now();
+    let id = h.add("/files/dyn.bin", "dyn.bin");
+
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    let starts: Vec<usize> = h.server.state.requests_for("/files/dyn.bin").iter()
+        .filter_map(|l| l.range.as_deref()?.strip_prefix("bytes=")?.split('-').next()?.parse().ok())
+        .collect();
+    let planned: Vec<usize> = (0..8).map(|i| i * 2 * 1024 * 1024).collect();
+    assert!(starts.iter().any(|s| !planned.contains(s)), "a range was split: {starts:?}");
+    assert!(started.elapsed() < Duration::from_secs(4), "took {:?}; the slow range wasn't shared", started.elapsed());
+    assert!(segments_cleared(&h, &id));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn split_ranges_survive_pause_and_restart() {
+    let mut h = Harness::new().await;
+    let total = 8 * 1024 * 1024;
+    let data = test_data(total, 42);
+    // Every connection is slow except where ranges were split, so splits are
+    // in place when the download is paused.
+    h.server.state.add("split.bin", FileSpec::new(data.clone()).etag("s2").delay(Duration::from_millis(15)).slow_from(0, Duration::from_millis(60)));
+    let id = h.add("/files/split.bin", "split.bin");
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let segs = downloads::segments(&h.db.lock().unwrap(), &id).unwrap();
+        if segs.len() > 8 {
+            break;
+        }
+        assert!(Instant::now() < deadline, "no split happened: {segs:?}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    h.engine.pause(&id).unwrap();
+    h.wait_status(&id, DownloadStatus::Paused).await;
+
+    h.restart_engine();
+    h.engine.enqueue(&id).unwrap();
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data, "every byte right after resuming a split layout");
 }
 
 fn segments_cleared(h: &Harness, id: &str) -> bool {
@@ -316,8 +364,8 @@ async fn pause_then_resume_continues_from_saved_ranges() {
     assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
     assert_eq!(read(&d.saved_path), data);
 
-    let second = bytes_requested(&h.server.state.requests_for("/files/slow.bin"), total);
-    assert!(second <= total - paused.downloaded_bytes as usize, "resume re-requested {second} bytes");
+    let second = bytes_sent(&h.server.state.requests_for("/files/slow.bin"));
+    assert!(second <= total - paused.downloaded_bytes as usize + SPLIT_OVERLAP, "resume fetched {second} bytes again");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -345,8 +393,8 @@ async fn recovers_after_app_restart() {
     let d = h.wait_done(&id).await;
     assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
     assert_eq!(read(&d.saved_path), data);
-    let second = bytes_requested(&h.server.state.requests_for("/files/crash.bin"), total);
-    assert!(second <= total - before.downloaded_bytes as usize);
+    let second = bytes_sent(&h.server.state.requests_for("/files/crash.bin"));
+    assert!(second <= total - before.downloaded_bytes as usize + SPLIT_OVERLAP);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

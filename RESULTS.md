@@ -557,3 +557,20 @@ With the installed test build and the reloaded extension:
 - **Checks:** 164 Rust tests (3 new: which links are offered, tooltip and startup command, speed totals; settings
   defaults and patch cover the new switches), Clippy and TypeScript clean. The offer window and the new Settings →
   Windows section checked in the sample-data preview. Not yet checked in the installed app.
+
+## M8 — Dynamic segmentation (2026-10-26)
+
+- **Engine** (`engine/task.rs`): byte ranges are now slots with a fixed start and an end that can only move earlier.
+  Up to N connections (as many as a fresh plan would use, also when resuming) each take an unclaimed unfinished
+  range; when none is left, an idle connection takes the back half of the claimed range with the most bytes left,
+  keeping 256 KiB (twice the write buffer) ahead of that range's connection and leaving both parts at least the
+  minimum segment size (1 MiB; 64 KiB in tests). The connection working on the shrunk range re-reads its end for
+  every chunk and stops there; any bytes it already wrote past the new end are the same data the other connection
+  writes, and are counted once. Progress saves store the whole layout, and a saved layout is only reused if it
+  covers the file exactly once. The download window's connection count is now the number of ranges in progress.
+- **Tests:** 169 Rust tests, full suite passed twice. New: unit tests for taking over ranges, the minimum split, not
+  counting bytes twice and checking saved layouts; an engine test with eight connections on a 16 MiB file where the
+  server throttles the one starting at 4 MiB (alone it needs over 5 s) finishes in under 4 s with a split range and
+  identical bytes; and a download paused after splits, restarted with a new engine and resumed, byte-exact. The
+  test server now counts bytes actually sent, which resume tests use instead of the Range headers (a split
+  connection stops before the end it asked for). Clippy clean. Not yet checked against real servers in the app.

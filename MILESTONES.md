@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: tray icon, close to tray, start with Windows and copied-link offers built and tested; check in the installed app left. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: dynamic segmentation done (idle connections take over the slowest ranges). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 0 | 0 | 7 | In progress |
-| **Total** | **66** | **9** | **82** | |
+| M8 — BDM 1.1 Everyday power | 1 | 1 | 7 | In progress |
+| **Total** | **67** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -274,7 +274,13 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
         corner (12 s, then it closes); Download goes through the New Download dialog like a browser download.
         Links already in the list aren't offered. The window may only read, accept or dismiss its offer.
   - [ ] Check in the installed app: tray menu, close to tray, Windows startup, copying a link
-- [ ] Dynamic segmentation: idle connections take over the slowest parts.
+- [x] Dynamic segmentation: idle connections take over the slowest parts.
+  - [x] A finished connection takes an unclaimed range, else the back half of the largest remaining one
+        (256 KiB gap ahead of its connection, both parts at least the minimum segment size)
+  - [x] The connection whose range shrank stops at the new end; bytes it wrote past it aren't counted twice
+  - [x] Resumed downloads use as many connections as a fresh plan, so one big leftover range is spread out again
+  - [x] The split layout is saved with progress; pause, restart and resume after splits are byte-exact (tests)
+  - [x] Test: one slow connection among eight on a 16 MiB file; finished in under 4 s instead of over 5 s
 - [ ] Refresh expired links: resume a download from a new link to the same file.
 - [ ] Virus scan after download (Microsoft Defender).
 - [ ] Subtitles, chapters and thumbnails for video downloads.
