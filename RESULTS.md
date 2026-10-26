@@ -424,3 +424,12 @@ From the BDM vs IDM audit (https://claude.ai/artifact/Q68KwaAAQN9XTfei7tEsz5):
 - **Navy headers:** dialog headers and tab strips and the download window's tab strip use the sidebar navy with white
   text; on Windows 11 the main and download windows' title bars are painted navy (DWM caption, border and text colour).
   Checked in the sample-data preview; the title-bar colour shows only in the real app.
+
+### Release v1.0.0 installer replaced again (2026-10-26)
+
+- New installer built from `34fb97b` (audit fixes, Mark of the Web, navy headers) and uploaded over the old one:
+  `BabarifyDownloadManager_1.0.0_x64-setup.exe`, 3,286,134 bytes,
+  SHA-256 `a9fb64ef5d699083302da273ca255dcc9c8cc89f368dc3850ad62f1e86944463` (matches the release's digest).
+- The extension zip is unchanged (no extension changes since `c76d542`). `SHA256SUMS.txt` replaced.
+- Release notes now say **New Download** instead of "Download File Info" and list Mark of the Web and the navy headers.
+- The tag `v1.0.0` still points at `c76d542`: moving it to `34fb97b` needs a force-push, not done yet.

@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — Audit fixes: "New Download" dialog and "Progress" tab (no IDM wording left), Mark of the Web on finished downloads, navy headers and title bars. Open: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — v1.0.0 release installer replaced with the audit-fix build (New Download dialog, Mark of the Web, navy headers); release notes refreshed. Tag still at c76d542. Open: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
