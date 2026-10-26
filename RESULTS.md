@@ -339,3 +339,15 @@ Requested after M6 from IDM screenshots; checked in the release build, with requ
   helper/BDM during rebuilds.
 - Not covered: a clean PC/VM, code signing (no certificate), the interactive installer pages (silent mode was used),
   and the uninstaller's "delete app data" option (not ticked, to keep your data).
+
+### Release v1.0.0 — 2026-10-26
+
+- Annotated tag `v1.0.0` on commit `0976427`, pushed to GitHub.
+- GitHub release "Babarify Download Manager 1.0.0" (private repo, not a draft or pre-release):
+  https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM/releases/tag/v1.0.0
+- Assets (uploaded sizes match the local files):
+  - `BabarifyDownloadManager_1.0.0_x64-setup.exe`, 3,459,347 bytes,
+    SHA-256 `40eee55c567b74fd311f39937afd1ea9a2df068e5b6c2891556ea8aa454b80db`
+  - `BabarifyDownloadManager_1.0.0_browser-extension.zip`, 60,615 bytes (extension files only, no keys),
+    SHA-256 `6636948e7c43d76b35aaee0bbe8bd5e1e7598f3d9f96e0867784038d8d881a6d`
+  - `SHA256SUMS.txt`

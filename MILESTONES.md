@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-25 — M7: BDM 1.0.0 installer built, installed on this PC and tested (install, uninstall, reinstall, install-over, Chrome and Edge). Branding refreshed from the new Brandboard. Open: clean-PC test, code signing, release tag.
+**Last updated:** 2026-10-26 — Released v1.0.0 on GitHub (private repo): installer, browser extension zip and SHA-256 checksums. Open: clean-PC test and code signing.
 
 ## Progress
 
@@ -220,4 +220,5 @@ Package BDM for installation, maintenance and possible public distribution.
   - [x] Chrome 155 and Edge 156 reach the installed BDM 1.0.0 through the installed helper ("running", version 1.0.0)
 - [ ] Complete final acceptance testing and release checklist. *(in progress)*
   - [x] Release checklist written (RELEASE.md); automated checks pass; install, upgrade, uninstall and browser checks done
-  - [ ] Code signing (needs a certificate), clean-PC test, git tag and publishing the installer
+  - [x] Tagged `v1.0.0` and published the GitHub release (private repo) with the installer, extension zip and SHA256SUMS
+  - [ ] Code signing (needs a certificate) and the clean-PC test
