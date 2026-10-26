@@ -169,7 +169,7 @@ export function DownloadTable({ downloads, progress, selected, onSelectionChange
                   <span className="progress-text">{pct == null ? "—" : `${pct.toFixed(0)}%`}</span>
                 </td>
                 <td>
-                  <StatusBadge status={d.status} />
+                  <StatusBadge status={d.status} scan={d.scanResult} />
                 </td>
                 <td className="num">{formatSpeed(live?.speed)}</td>
                 <td className="num">{formatEta(live?.etaSeconds)}</td>

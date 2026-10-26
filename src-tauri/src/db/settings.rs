@@ -39,6 +39,7 @@ const KEY_SHOW_WINDOW: &str = "show_download_window";
 const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
 const KEY_START_WITH_WINDOWS: &str = "start_with_windows";
 const KEY_OFFER_COPIED_LINKS: &str = "offer_copied_links";
+const KEY_SCAN_DOWNLOADS: &str = "scan_downloads";
 
 pub const MAX_SPEED_LIMIT_KBPS: u32 = 10_000_000;
 pub const MAX_RETRIES_LIMIT: u32 = 10;
@@ -76,6 +77,7 @@ pub fn load(conn: &Connection, fallback_download_dir: &str) -> AppResult<Setting
         close_to_tray: read(conn, KEY_CLOSE_TO_TRAY)?.unwrap_or(true),
         start_with_windows: read(conn, KEY_START_WITH_WINDOWS)?.unwrap_or(false),
         offer_copied_links: read(conn, KEY_OFFER_COPIED_LINKS)?.unwrap_or(true),
+        scan_downloads: read(conn, KEY_SCAN_DOWNLOADS)?.unwrap_or(true),
     })
 }
 
@@ -182,6 +184,9 @@ pub fn apply_patch(conn: &mut Connection, patch: &SettingsPatch) -> AppResult<()
     if let Some(v) = patch.offer_copied_links {
         write(&tx, KEY_OFFER_COPIED_LINKS, &v)?;
     }
+    if let Some(v) = patch.scan_downloads {
+        write(&tx, KEY_SCAN_DOWNLOADS, &v)?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -222,6 +227,7 @@ mod tests {
         assert!(s.confirm_before_remove);
         assert!(s.close_to_tray && s.offer_copied_links);
         assert!(!s.start_with_windows, "never added to Windows startup without asking");
+        assert!(s.scan_downloads);
     }
 
     #[test]
@@ -251,6 +257,7 @@ mod tests {
             close_to_tray: Some(false),
             start_with_windows: Some(true),
             offer_copied_links: Some(false),
+            scan_downloads: Some(false),
         };
         apply_patch(&mut conn, &patch).unwrap();
         let s = load(&conn, "unused").unwrap();

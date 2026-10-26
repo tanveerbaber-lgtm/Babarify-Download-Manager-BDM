@@ -591,3 +591,21 @@ With the installed test build and the reloaded extension:
   byte-exact, the old address isn't used again and only the missing part comes from the new one; a different size,
   a different ETag and a running download are refused and leave the link unchanged). Clippy and TypeScript clean.
   Both dialogs checked in the sample-data preview. Not yet tried in the installed app.
+
+## M8 — Virus scan after download (2026-10-26)
+
+- **Scanner** (`scanner.rs`): Microsoft Defender's `MpCmdRun.exe -Scan -ScanType 3 -File <file>`, from the active
+  platform (`%ProgramData%\Microsoft\Windows Defender\Platform\CurrentVersion`), else the newest platform folder,
+  else Program Files; no console window, 10-minute limit. Exit 0 = clean, 2 = threat; anything else (Defender off or
+  replaced by another antivirus) = not scanned, logged only.
+- **Engine:** when a download (file or video) completes and "Scan finished downloads for viruses" is on (default),
+  its `scan_result` becomes `scanning` and the scan runs in the background, so it doesn't hold a download slot; then
+  `clean`, `threat` or `unavailable` (migration 0006 adds the column; Download Again clears it). A threat always
+  sends a notification ("Threat Found"); Defender quarantines or removes the file as it normally would.
+- **App:** the status chip shows Scanning…, a shield on Completed when clean, or a red Threat Found; the download
+  window's Download Complete view lists the result; Settings → Security has the switch.
+- **Checks:** 175 Rust tests (4 new: Defender exit codes and platform choice; an engine test with a stand-in
+  scanner script where one finished download is clean and one is a threat, only the threat is reported and the list
+  showed "scanning" first; no scan when the setting is off). The real Defender on this PC scanned a downloaded MP4:
+  exit code 0, "found no threats", 117 ms. Clippy and TypeScript clean; the list checked in the sample-data
+  preview. A real threat wasn't tried (no test malware was written to this PC).

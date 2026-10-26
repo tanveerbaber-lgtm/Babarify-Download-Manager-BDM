@@ -258,6 +258,13 @@ export function SettingsView({ settings, categories, onUpdate, onCategoriesChang
           checked={settings.allowLocalNetwork}
           onChange={(v) => save({ allowLocalNetwork: v })}
         />
+        <SwitchSetting
+          id="scan-downloads"
+          title="Scan finished downloads for viruses"
+          desc="Checks each finished file with Microsoft Defender and shows the result. Defender removes anything harmful. Skipped when Defender isn't your antivirus."
+          checked={settings.scanDownloads}
+          onChange={(v) => save({ scanDownloads: v })}
+        />
       </section>
 
       <section className="card">

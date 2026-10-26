@@ -40,6 +40,9 @@ BDM doesn't send your download list, settings or any identifier to Babarify or a
   never saves them to disk except as a temporary file handed to yt-dlp and deleted when it finishes, forgets them
   after 12 hours or when it closes, and sends each cookie only to the site it belongs to. Removing the site in the
   options stops this and withdraws the permission.
+- **Virus scan (BDM app):** with "Scan finished downloads for viruses" on (Settings → Security), each finished
+  file is checked by Microsoft Defender on your PC (`MpCmdRun.exe`). BDM sends nothing anywhere for this; whether
+  Defender itself shares samples with Microsoft is set in Windows Security.
 - **Copied links (BDM app):** with "Offer to download copied links" on (Settings → Windows), BDM checks the
   clipboard when it changes. Only a single link to a file type it downloads is offered; nothing is stored, logged or
   sent anywhere, and the link goes to BDM's download list only if you click Download.

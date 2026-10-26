@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: refresh expired links done (right-click → Refresh Download Link…, and the New Download dialog offers to continue a matching unfinished download). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: virus scan after download done (Microsoft Defender; Scanning…, shield when clean, Threat Found with a notification). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 2 | 1 | 7 | In progress |
-| **Total** | **68** | **10** | **82** | |
+| M8 — BDM 1.1 Everyday power | 3 | 1 | 7 | In progress |
+| **Total** | **69** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -287,7 +287,12 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] The New Download dialog spots an unfinished download with the same name and size and offers "Continue It"
   - [x] Video and audio downloads don't need it (yt-dlp fetches fresh addresses on every resume)
   - [x] Tests: continue from a new link byte-exact, nothing re-fetched; different size, version or a running download refused
-- [ ] Virus scan after download (Microsoft Defender).
+- [x] Virus scan after download (Microsoft Defender).
+  - [x] Each finished file (files and videos) is scanned with Defender's MpCmdRun in the background, not holding a slot
+  - [x] The list shows Scanning…, a shield on Completed when clean, or Threat Found; the download window says the result
+  - [x] A threat always gets a notification; Defender quarantines or removes the file itself
+  - [x] Skipped quietly when Defender isn't available (another antivirus); Settings → Security switch, on by default
+  - [x] Tests with a stand-in scanner (clean, threat, off); real Defender on this PC: exit 0, "found no threats", 0.1 s
 - [ ] Subtitles, chapters and thumbnails for video downloads.
 - [ ] Command line and `bdm://` links.
 - [ ] Disk-space guard: warn before starting, pause before the drive is full.

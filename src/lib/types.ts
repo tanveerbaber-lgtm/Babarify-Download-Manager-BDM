@@ -21,7 +21,12 @@ export type MediaOptions =
   | { mode: "audio"; format: AudioFormat }
   | { mode: "format"; formatId: string; container: Container };
 
+/** "scanning" while Microsoft Defender checks a finished file. */
+export type ScanResult = "scanning" | "clean" | "threat" | "unavailable";
+
 export interface Download {
+  /** Virus scan of the finished file. */
+  scanResult: ScanResult | null;
   id: string;
   kind: DownloadKind;
   url: string;
@@ -172,6 +177,8 @@ export interface Settings {
   startWithWindows: boolean;
   /** Offer to download links to files when they're copied. */
   offerCopiedLinks: boolean;
+  /** Scan finished downloads with Microsoft Defender. */
+  scanDownloads: boolean;
 }
 
 /** The copied link shown in the "Download with BDM?" window. */

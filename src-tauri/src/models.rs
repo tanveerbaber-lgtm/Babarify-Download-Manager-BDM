@@ -134,6 +134,8 @@ pub struct Download {
     pub auto_retries: i64,
     /// When the next automatic retry is due (unix ms).
     pub retry_at: Option<i64>,
+    /// Virus scan of the finished file: "scanning", "clean", "threat" or "unavailable".
+    pub scan_result: Option<String>,
     #[serde(skip)]
     pub temp_path: Option<String>,
     #[serde(skip)]
@@ -294,6 +296,8 @@ pub struct Settings {
     pub start_with_windows: bool,
     /// Offer to download links to files when they're copied.
     pub offer_copied_links: bool,
+    /// Scan finished downloads with Microsoft Defender.
+    pub scan_downloads: bool,
 }
 
 /// Partial update for settings; only provided fields are changed.
@@ -322,6 +326,7 @@ pub struct SettingsPatch {
     pub close_to_tray: Option<bool>,
     pub start_with_windows: Option<bool>,
     pub offer_copied_links: Option<bool>,
+    pub scan_downloads: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -20,6 +20,7 @@ struct RecordingSink {
     removed: Mutex<Vec<String>>,
     completed: Mutex<Vec<String>>,
     failed: Mutex<Vec<String>>,
+    threats: Mutex<Vec<String>>,
     all_done: std::sync::atomic::AtomicUsize,
 }
 
@@ -38,6 +39,9 @@ impl EventSink for RecordingSink {
     }
     fn failed(&self, d: &Download) {
         self.failed.lock().unwrap().push(d.id.clone());
+    }
+    fn threat(&self, d: &Download) {
+        self.threats.lock().unwrap().push(d.id.clone());
     }
     fn all_done(&self) {
         self.all_done.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -84,7 +88,8 @@ impl Harness {
         let db_dir = tempfile::tempdir().unwrap();
         let db = Arc::new(Database::new(db::open(&db_dir.path().join("t.sqlite3")).unwrap()));
         // The test server is on 127.0.0.1, which BDM blocks by default.
-        let allow = crate::models::SettingsPatch { allow_local_network: Some(true), ..Default::default() };
+        // Downloads aren't virus-scanned unless a test asks for it.
+        let allow = crate::models::SettingsPatch { allow_local_network: Some(true), scan_downloads: Some(false), ..Default::default() };
         crate::db::settings::apply_patch(&mut db.lock().unwrap(), &allow).unwrap();
         let sink = Arc::new(RecordingSink::default());
         let engine = Engine::new(db.clone(), sink.clone(), test_config(), tokio::runtime::Handle::current(), test_tools(&db_dir, &sink)).unwrap();
@@ -373,6 +378,59 @@ async fn refresh_refuses_a_different_file() {
     let version = h.engine.refresh_link(&id, &h.server.url("/files/newer.bin")).await.unwrap_err();
     assert!(version.to_string().contains("different version"), "{version}");
     assert_eq!(h.get(&id).url, h.server.url("/files/orig.bin"), "a refused link changes nothing");
+}
+
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn finished_downloads_are_virus_scanned() {
+    let mut h = Harness::new().await;
+    // A stand-in for MpCmdRun: exit code 2 (threat) for files named "infected…", else 0.
+    let scanner = h.dir.path().join("fake-scanner.cmd");
+    std::fs::write(&scanner, "@echo off\r\necho %* | findstr /i \"infected\" >nul && exit /b 2\r\nexit /b 0\r\n").unwrap();
+    let on = crate::models::SettingsPatch { scan_downloads: Some(true), ..Default::default() };
+    crate::db::settings::apply_patch(&mut h.db.lock().unwrap(), &on).unwrap();
+    h.engine = Engine::new(
+        h.db.clone(),
+        h.sink.clone(),
+        EngineConfig { scanner: Some(scanner), ..test_config() },
+        tokio::runtime::Handle::current(),
+        test_tools(&h._db_dir, &h.sink),
+    )
+    .unwrap();
+    h.engine.set_limits(3, 8).unwrap();
+
+    h.server.state.add("tool.zip", FileSpec::new(test_data(200_000, 61)));
+    h.server.state.add("infected.zip", FileSpec::new(test_data(200_000, 62)));
+    let clean = h.add("/files/tool.zip", "tool.zip");
+    let bad = h.add("/files/infected.zip", "infected.zip");
+    for id in [&clean, &bad] {
+        let d = h.wait_done(id).await;
+        assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    }
+    let scanned = |id: &str| h.get(id).scan_result.filter(|r| r != crate::scanner::SCANNING);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while scanned(&clean).is_none() || scanned(&bad).is_none() {
+        assert!(Instant::now() < deadline, "scans didn't finish");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(scanned(&clean).as_deref(), Some(crate::scanner::CLEAN));
+    assert_eq!(scanned(&bad).as_deref(), Some(crate::scanner::THREAT));
+    assert_eq!(*h.sink.threats.lock().unwrap(), std::slice::from_ref(&bad), "only the threat is reported");
+    assert!(
+        h.sink.updates.lock().unwrap().iter().any(|d| d.id == clean && d.scan_result.as_deref() == Some(crate::scanner::SCANNING)),
+        "the list shows the scan while it runs"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn no_scan_when_switched_off() {
+    let h = Harness::new().await;
+    h.server.state.add("plain.zip", FileSpec::new(test_data(50_000, 63)));
+    let id = h.add("/files/plain.zip", "plain.zip");
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(h.get(&id).scan_result, None);
 }
 
 fn segments_cleared(h: &Harness, id: &str) -> bool {

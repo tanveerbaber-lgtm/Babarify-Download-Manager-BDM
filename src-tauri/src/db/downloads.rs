@@ -10,7 +10,7 @@ const COLUMNS: &str = "id, url, file_name, destination_dir, status, total_bytes,
                        downloaded_bytes, error_message, created_at, updated_at, completed_at, \
                        final_url, saved_path, resumable, expected_sha256, temp_path, etag, last_modified, \
                        kind, title, media_options, referrer, queue_id, priority, position, category, \
-                       speed_limit, auto_retries, retry_at";
+                       speed_limit, auto_retries, retry_at, scan_result";
 
 /// Fields needed to create a new pending record (already validated).
 pub struct InsertDownload<'a> {
@@ -244,6 +244,11 @@ pub fn replace_link(conn: &Connection, id: &str, url: &str, info: &RemoteInfo<'_
     Ok(())
 }
 
+pub fn set_scan_result(conn: &Connection, id: &str, result: Option<&str>) -> AppResult<()> {
+    conn.execute("UPDATE downloads SET scan_result = ?2 WHERE id = ?1", params![id, result])?;
+    Ok(())
+}
+
 pub fn set_file_name(conn: &Connection, id: &str, file_name: &str) -> AppResult<()> {
     conn.execute(
         "UPDATE downloads SET file_name = ?2, updated_at = ?3 WHERE id = ?1",
@@ -276,7 +281,7 @@ pub fn reset_progress(conn: &Connection, id: &str) -> AppResult<()> {
     tx.execute("DELETE FROM download_segments WHERE download_id = ?1", [id])?;
     tx.execute(
         "UPDATE downloads SET downloaded_bytes = 0, temp_path = NULL, etag = NULL,
-                              last_modified = NULL, total_bytes = NULL, updated_at = ?2
+                              last_modified = NULL, total_bytes = NULL, scan_result = NULL, updated_at = ?2
          WHERE id = ?1",
         params![id, now_ms()],
     )?;
@@ -289,7 +294,7 @@ pub fn reset_progress(conn: &Connection, id: &str) -> AppResult<()> {
 pub fn prepare_redownload(conn: &Connection, id: &str) -> AppResult<()> {
     reset_progress(conn, id)?;
     conn.execute(
-        "UPDATE downloads SET status = 'pending', saved_path = NULL, completed_at = NULL, error_message = NULL,
+        "UPDATE downloads SET status = 'pending', saved_path = NULL, completed_at = NULL, error_message = NULL, scan_result = NULL,
                               final_url = NULL, resumable = 0, retry_at = NULL, auto_retries = 0, updated_at = ?2
          WHERE id = ?1",
         params![id, now_ms()],
@@ -424,6 +429,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Download> {
         speed_limit: row.get(26)?,
         auto_retries: row.get(27)?,
         retry_at: row.get(28)?,
+        scan_result: row.get(29)?,
     })
 }
 

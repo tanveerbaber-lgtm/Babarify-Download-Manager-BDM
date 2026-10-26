@@ -42,6 +42,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0003_media.sql"),
     include_str!("migrations/0004_browser.sql"),
     include_str!("migrations/0005_queues.sql"),
+    include_str!("migrations/0006_scan.sql"),
 ];
 
 /// Latest schema version this build understands.

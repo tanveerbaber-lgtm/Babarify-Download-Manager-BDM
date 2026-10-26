@@ -13,6 +13,7 @@ mod media;
 mod models;
 mod net_guard;
 mod request_headers;
+mod scanner;
 mod state;
 mod title_bar;
 mod validation;
@@ -66,6 +67,10 @@ impl EventSink for TauriSink {
 
     fn failed(&self, download: &Download) {
         completion::on_failed(&self.0, download);
+    }
+
+    fn threat(&self, download: &Download) {
+        completion::on_threat(&self.0, download);
     }
 
     fn all_done(&self) {

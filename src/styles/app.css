@@ -3144,3 +3144,9 @@ body,
   align-items: center;
   gap: 4px;
 }
+
+/* Virus scan result in the download window */
+.dlw-grid dd.danger {
+  color: var(--danger);
+  font-weight: var(--weight-title);
+}

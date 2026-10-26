@@ -56,6 +56,8 @@ pub trait EventSink: Send + Sync + 'static {
     fn completed(&self, _download: &Download) {}
     /// A download failed and no automatic retry is planned.
     fn failed(&self, _download: &Download) {}
+    /// The virus scan of a finished download found a threat.
+    fn threat(&self, _download: &Download) {}
     /// Every download has finished (nothing queued, running or waiting to retry).
     fn all_done(&self) {}
     /// A queue was started or stopped by its schedule.

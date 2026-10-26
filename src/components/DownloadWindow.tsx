@@ -30,6 +30,12 @@ function loadDone(): DoneOptions {
 }
 
 /** The small window for one download: live status, connections, speed limit, completion options. */
+const SCAN_TEXT = {
+  scanning: "Checking with Microsoft Defender…",
+  clean: "No threats found (Microsoft Defender)",
+  threat: "Threat found. Microsoft Defender dealt with the file.",
+} as const;
+
 export function DownloadWindow({ id }: { id: string }) {
   const { settings, update } = useSettings();
   const [download, setDownload] = useState<Download | null>(null);
@@ -128,6 +134,12 @@ export function DownloadWindow({ id }: { id: string }) {
             <dd>{formatBytes(download.totalBytes)}</dd>
             <dt>Saved to</dt>
             <dd className="path">{download.savedPath}</dd>
+            {download.scanResult && download.scanResult !== "unavailable" && (
+              <>
+                <dt>Virus scan</dt>
+                <dd className={download.scanResult === "threat" ? "danger" : undefined}>{SCAN_TEXT[download.scanResult]}</dd>
+              </>
+            )}
           </dl>
           {error && <p className="form-error">{error}</p>}
           <div className="dlw-actions">

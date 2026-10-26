@@ -58,6 +58,8 @@ pub struct EngineConfig {
     pub speed_window: Duration,
     /// How often schedules and automatic retries are checked.
     pub tick_interval: Duration,
+    /// Virus scanner for finished downloads; Microsoft Defender when `None`.
+    pub scanner: Option<std::path::PathBuf>,
 }
 
 impl Default for EngineConfig {
@@ -73,6 +75,7 @@ impl Default for EngineConfig {
             persist_every_ticks: 4,
             speed_window: Duration::from_secs(5),
             tick_interval: Duration::from_secs(15),
+            scanner: None,
         }
     }
 }
@@ -170,6 +173,9 @@ struct Inner {
     tools: Arc<ToolManager>,
     global_limit: Arc<RateLimiter>,
     guard: Arc<NetGuard>,
+    /// Scan finished downloads (setting), and with what.
+    scan: std::sync::atomic::AtomicBool,
+    scanner: Option<std::path::PathBuf>,
     cookies: Arc<CookieJar>,
     headers: Arc<HeaderStore>,
 }
@@ -191,6 +197,7 @@ impl Engine {
         let guard = NetGuard::new(s.allow_local_network);
         let client = http::build_client(&cfg, guard.clone())
             .map_err(|e| AppError::Internal(format!("couldn't create HTTP client: {e}")))?;
+        let scanner = cfg.scanner.clone().or_else(crate::scanner::defender_path);
         let engine = Self {
             inner: Arc::new(Inner {
                 db,
@@ -201,6 +208,8 @@ impl Engine {
                 tools,
                 global_limit: Arc::new(RateLimiter::new(0)),
                 guard,
+                scan: std::sync::atomic::AtomicBool::new(false),
+                scanner,
                 cookies: Arc::new(CookieJar::new()),
                 headers: Arc::new(HeaderStore::new()),
                 sched: Mutex::new(Scheduler {
@@ -241,6 +250,7 @@ impl Engine {
     pub fn apply_policy(&self, s: &Settings) -> AppResult<()> {
         self.inner.global_limit.set_rate(u64::from(s.speed_limit_kbps) * 1024);
         self.inner.guard.set_allow_local(s.allow_local_network);
+        self.inner.scan.store(s.scan_downloads, Ordering::Release);
         {
             let mut sched = self.sched()?;
             sched.retry = RetryPolicy {
@@ -592,7 +602,10 @@ impl Engine {
             }
         }
         match outcome {
-            Ok(Some(d)) if d.status == DownloadStatus::Completed => self.inner.sink.completed(&d),
+            Ok(Some(d)) if d.status == DownloadStatus::Completed => {
+                self.inner.sink.completed(&d);
+                self.scan_finished(&d);
+            }
             Ok(Some(d)) if d.status == DownloadStatus::Failed && d.retry_at.is_none() => self.inner.sink.failed(&d),
             Ok(_) => {}
             Err(e) => eprintln!("[bdm] couldn't record outcome of download {id}: {e}"),
@@ -601,6 +614,41 @@ impl Engine {
         if let Err(e) = self.check_all_done() {
             eprintln!("[bdm] couldn't check for finished queues: {e}");
         }
+    }
+
+    /// Scans a finished download in the background (it doesn't hold a slot)
+    /// and records the result. Threats are reported; Defender itself deals
+    /// with the file.
+    fn scan_finished(&self, d: &Download) {
+        let (Some(scanner), Some(path)) = (self.inner.scanner.clone(), d.saved_path.clone()) else { return };
+        if !self.inner.scan.load(Ordering::Acquire) {
+            return;
+        }
+        let set = |inner: &Inner, id: &str, result: &str| -> AppResult<Download> {
+            let conn = inner.db.lock()?;
+            downloads::set_scan_result(&conn, id, Some(result))?;
+            let d = downloads::require(&conn, id)?;
+            inner.sink.updated(&d);
+            Ok(d)
+        };
+        if let Err(e) = set(&self.inner, &d.id, crate::scanner::SCANNING) {
+            eprintln!("[bdm] couldn't start the virus scan: {e}");
+            return;
+        }
+        let inner = self.inner.clone();
+        let id = d.id.clone();
+        self.inner.runtime.spawn(async move {
+            let outcome = crate::scanner::scan(&scanner, std::path::Path::new(&path)).await;
+            if let crate::scanner::ScanOutcome::Unavailable(why) = &outcome {
+                eprintln!("[bdm] virus scan skipped for {id}: {why}");
+            }
+            match set(&inner, &id, outcome.stored()) {
+                Ok(d) if outcome == crate::scanner::ScanOutcome::Threat => inner.sink.threat(&d),
+                Ok(_) => {}
+                // The download may have been removed meanwhile.
+                Err(e) => eprintln!("[bdm] couldn't record the virus scan of {id}: {e}"),
+            }
+        });
     }
 
     /// Stops scheduled queues that ran dry and reports when everything is done.

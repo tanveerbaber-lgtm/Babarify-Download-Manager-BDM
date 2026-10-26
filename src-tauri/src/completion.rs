@@ -39,6 +39,15 @@ pub fn on_failed(app: &AppHandle, d: &Download) {
     }
 }
 
+/// Always shown: a threat matters even with failure notifications off.
+pub fn on_threat(app: &AppHandle, d: &Download) {
+    notify(
+        app,
+        "Threat Found",
+        &format!("{}\nMicrosoft Defender found a threat in this download and dealt with it. The file may have been removed.", display_name(d)),
+    );
+}
+
 /// Runs the "when all downloads are done" action. It runs once, then the
 /// setting goes back to "Do nothing" so the PC isn't shut down again later.
 pub fn on_all_done(app: &AppHandle) {
