@@ -690,3 +690,5 @@ With the test installer installed from Explorer (BDM process started 7:33 PM), u
   was cancelled.
 - **Not checked:** the tray's right-click menu (computer use may not right-click the taskbar), starting with Windows
   after a sign-in, and `--start`/`--later` (they share the Add dialog's code; not run to keep your list unchanged).
+- **Tray menu** (confirmed by you): right-clicking the tray icon shows Open BDM, Add Download…, Resume All, Pause All and
+  Quit BDM.

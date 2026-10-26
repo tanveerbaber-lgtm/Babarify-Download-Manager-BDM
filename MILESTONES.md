@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8 checked in the installed app: tray, close to tray, copied-link offer, --add, --import and bdm:// links work. Left: the tray's right-click menu (needs you) and Windows startup after a sign-in. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: tray menu confirmed in the installed app; only Windows startup after a sign-in is left to check. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,7 +18,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 6 | 1 | 7 | In progress (tray menu and Windows startup to confirm) |
+| M8 — BDM 1.1 Everyday power | 6 | 1 | 7 | In progress (Windows startup to confirm) |
 | **Total** | **72** | **10** | **82** | |
 
 ## M1 — Desktop Foundation
@@ -275,7 +275,8 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
         Links already in the list aren't offered. The window may only read, accept or dismiss its offer.
   - [x] Installed app (2026-10-26): tray icon and tooltip; left click opens BDM; closing keeps the same process running in the
         tray; copying an ISO link showed "Download with BDM?" in the corner within 2 s and it closed by itself
-  - [ ] The tray's right-click menu (computer use can't right-click the taskbar) and starting with Windows after a sign-in
+  - [x] The tray's right-click menu: Open BDM, Add Download…, Resume All, Pause All, Quit BDM (confirmed by you)
+  - [ ] Starting with Windows after a sign-in (turn it on in Settings → Windows, then sign out and in)
 - [x] Dynamic segmentation: idle connections take over the slowest parts.
   - [x] A finished connection takes an unclaimed range, else the back half of the largest remaining one
         (256 KiB gap ahead of its connection, both parts at least the minimum segment size)
