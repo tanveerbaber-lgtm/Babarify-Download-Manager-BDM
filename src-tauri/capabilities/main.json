@@ -54,6 +54,7 @@
     "allow-bulk-action",
     "allow-open-download-window",
     "allow-open-legal-document",
-    "allow-refresh-download-link"
+    "allow-refresh-download-link",
+    "allow-take-startup-requests"
   ]
 }

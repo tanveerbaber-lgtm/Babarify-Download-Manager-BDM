@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — M8: subtitles, chapters and cover art for video downloads done (checked on a real YouTube video). Tray/startup/clipboard still needs a check in the installed app. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — M8: command line and bdm:// links done (COMMAND_LINE.md); needs a check in the installed app, like the tray features. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -18,8 +18,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
 | After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
-| M8 — BDM 1.1 Everyday power | 4 | 1 | 7 | In progress |
-| **Total** | **70** | **10** | **82** | |
+| M8 — BDM 1.1 Everyday power | 4 | 2 | 7 | In progress |
+| **Total** | **70** | **11** | **82** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -298,5 +298,11 @@ Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), on
   - [x] Exact language codes (en, ur, pt-BR); wider patterns also took dozens of machine translations and got rate-limited
   - [x] When the site refuses the subtitles (HTTP 429), the video downloads again without them
   - [x] Real YouTube check (Sprite Fright, CC-BY): MP4 with an English subtitle track, cover art and 7 chapters
-- [ ] Command line and `bdm://` links.
+- [~] Command line and `bdm://` links. *(check in the installed app left)*
+  - [x] `--add` (with `--name`, `--folder`, `--queue`, `--start`/`--later`), bare links, `--media`, `--import links.txt`
+  - [x] A second launch hands its arguments to the running BDM; at first launch they wait until the window has loaded
+  - [x] `bdm://add?url=…&name=…` and `bdm://media?url=…`: always the New Download (or video) dialog, never a folder,
+        queue or silent start; registered per user on each launch of the installed app, removed by the uninstaller
+  - [x] Usage in COMMAND_LINE.md
+  - [ ] Check in the installed app: `bdm.exe --add …`, a `bdm://` link from the browser, `--import`
 - [ ] Disk-space guard: warn before starting, pause before the drive is full.

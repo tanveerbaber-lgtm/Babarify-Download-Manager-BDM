@@ -10,6 +10,8 @@
   DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.babarify.bdm"
   Delete "$APPDATA\com.babarify.bdm\native-host\com.babarify.bdm.json"
   RMDir "$APPDATA\com.babarify.bdm\native-host"
+  ; bdm:// links.
+  DeleteRegKey HKCU "Software\Classes\bdm"
   ; "Start with Windows", if it was turned on.
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Babarify Download Manager"
 !macroend

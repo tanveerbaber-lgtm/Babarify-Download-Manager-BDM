@@ -48,6 +48,7 @@ const COMMANDS: &[&str] = &[
     "get_clipboard_offer",
     "accept_clipboard_offer",
     "dismiss_clipboard_offer",
+    "take_startup_requests",
 ];
 
 fn main() {

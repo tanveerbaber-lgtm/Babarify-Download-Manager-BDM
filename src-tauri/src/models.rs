@@ -164,7 +164,7 @@ impl Segment {
 }
 
 /// Payload of the `add_download` command.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NewDownloadRequest {
     pub url: String,

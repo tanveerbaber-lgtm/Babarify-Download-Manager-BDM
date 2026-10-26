@@ -237,6 +237,34 @@ pub fn set_start_with_windows(enabled: bool) -> AppResult<()> {
     Ok(())
 }
 
+// ------------------------------------------------------------ bdm:// links
+
+/// The command Windows runs for a `bdm://` link.
+#[cfg_attr(debug_assertions, allow(dead_code))]
+fn url_protocol_command(exe: &std::path::Path) -> String {
+    format!("\"{}\" \"%1\"", exe.display())
+}
+
+/// Registers `bdm://` links for this user (HKCU, no admin), pointing at this
+/// exe. Re-written every launch like the browser helper; the uninstaller
+/// removes it.
+#[cfg(windows)]
+#[cfg_attr(debug_assertions, allow(dead_code))]
+pub fn register_url_protocol() -> AppResult<()> {
+    use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
+    let exe = std::env::current_exe().map_err(|e| AppError::Io(e.to_string()))?;
+    let io = |e: std::io::Error| AppError::Io(format!("couldn't register bdm:// links: {e}"));
+    let (key, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(r"Software\Classes\bdm").map_err(io)?;
+    key.set_value("", &format!("URL:{APP_NAME}")).map_err(io)?;
+    key.set_value("URL Protocol", &"").map_err(io)?;
+    let (icon, _) = key.create_subkey("DefaultIcon").map_err(io)?;
+    icon.set_value("", &format!("\"{}\",0", exe.display())).map_err(io)?;
+    let (command, _) = key.create_subkey(r"shell\open\command").map_err(io)?;
+    command.set_value("", &url_protocol_command(&exe)).map_err(io)?;
+    Ok(())
+}
+
 // ------------------------------------------------------------ clipboard
 
 /// A copied text that is worth offering: one http(s) link to a file type BDM
@@ -396,6 +424,14 @@ mod tests {
         assert_eq!(
             run_command(std::path::Path::new(r"C:\Users\me\AppData\Local\Babarify Download Manager\bdm.exe")),
             r#""C:\Users\me\AppData\Local\Babarify Download Manager\bdm.exe" --minimized"#
+        );
+    }
+
+    #[test]
+    fn link_command_passes_the_link_as_one_argument() {
+        assert_eq!(
+            url_protocol_command(std::path::Path::new(r"C:\Program Files\BDM\bdm.exe")),
+            r#""C:\Program Files\BDM\bdm.exe" "%1""#
         );
     }
 

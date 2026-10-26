@@ -2,7 +2,7 @@
 // Components call these instead of `invoke` directly.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { AppError, AppInfo, BatchRequest, BrowserStatus, Category, ClipboardOffer, Download, MediaInfo, NewDownloadRequest, NewMediaRequest, Priority, Queue, QueueSchedule, Settings, SettingsPatch, ToolKind, ToolStatus } from "./types";
+import type { AppError, AppInfo, BatchRequest, BrowserStatus, Category, ClipboardOffer, Download, MediaInfo, NewDownloadRequest, NewMediaRequest, Priority, Queue, QueueSchedule, Settings, SettingsPatch, ToolKind, ToolStatus, UiRequest } from "./types";
 
 function isAppError(value: unknown): value is AppError {
   return (
@@ -78,6 +78,7 @@ export const api = {
   openDownloadWindow: (id: string) => call<void>("open_download_window", { id }),
   openLegalDocument: (document: "license" | "privacy" | "notices") => call<void>("open_legal_document", { document }),
   getClipboardOffer: () => call<ClipboardOffer | null>("get_clipboard_offer"),
+  takeStartupRequests: () => call<UiRequest[]>("take_startup_requests"),
   acceptClipboardOffer: () => call<void>("accept_clipboard_offer"),
   dismissClipboardOffer: () => call<void>("dismiss_clipboard_offer"),
 };
@@ -94,4 +95,5 @@ export const EVENTS = {
   browserConfirm: "browser:confirm",
   addDownload: "app:add-download",
   offerChanged: "offer:changed",
+  importLinks: "app:import-links",
 } as const;

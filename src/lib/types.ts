@@ -191,6 +191,13 @@ export interface Settings {
   automaticSubtitles: boolean;
 }
 
+/** What BDM was asked to show by the command line or a bdm:// link before the window loaded. */
+export type UiRequest =
+  | { kind: "confirm"; proposal: BrowserProposal }
+  | { kind: "media"; url: string }
+  | { kind: "import"; links: string[] }
+  | { kind: "added"; download: Download };
+
 /** The copied link shown in the "Download with BDM?" window. */
 export interface ClipboardOffer {
   url: string;

@@ -12,6 +12,8 @@ interface BatchDialogProps {
   queues: Queue[];
   onClose: () => void;
   onAdd: (request: BatchRequest) => Promise<Download[]>;
+  /** Links to start with (bdm.exe --import), shown in the list tab. */
+  initialLinks?: string[];
 }
 
 export function BatchDialog(props: BatchDialogProps) {
@@ -32,11 +34,11 @@ function linksIn(text: string): string[] {
   return [...seen];
 }
 
-function BatchForm({ queues, onClose, onAdd }: BatchDialogProps) {
-  const [mode, setMode] = useState<Mode>("pattern");
+function BatchForm({ queues, onClose, onAdd, initialLinks }: BatchDialogProps) {
+  const [mode, setMode] = useState<Mode>(initialLinks?.length ? "list" : "pattern");
   const [pattern, setPattern] = useState("");
   const [patternUrls, setPatternUrls] = useState<string[]>([]);
-  const [listText, setListText] = useState("");
+  const [listText, setListText] = useState(initialLinks?.join("\n") ?? "");
   const [destinationDir, setDestinationDir] = useState("");
   const [queueId, setQueueId] = useState("main");
   const [startNow, setStartNow] = useState(true);

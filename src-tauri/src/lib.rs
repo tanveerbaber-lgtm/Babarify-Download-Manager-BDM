@@ -1,6 +1,7 @@
 //! Babarify Download Manager — Rust core.
 
 mod batch;
+mod cli;
 pub mod browser;
 mod commands;
 mod completion;
@@ -92,8 +93,8 @@ pub const EVENT_BROWSER_MEDIA: &str = "browser:media";
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BrowserMedia {
-    url: String,
-    page_title: Option<String>,
+    pub(crate) url: String,
+    pub(crate) page_title: Option<String>,
 }
 
 use desktop::show_main_window;
@@ -216,11 +217,15 @@ pub fn run() {
     tauri::Builder::default()
         // Must be first: a second launch (e.g. by the browser helper) just
         // focuses the running instance.
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            // A second "Start with Windows" launch leaves the running BDM in the tray.
-            if !args.iter().any(|a| a == desktop::AUTOSTART_ARG) {
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            // A second launch hands over its links and options (the first item is the program).
+            let rest = args.get(1..).unwrap_or_default();
+            if rest.is_empty() {
                 show_main_window(app);
+            } else if !rest.iter().all(|a| a == desktop::AUTOSTART_ARG) {
+                cli::run(app, rest, std::path::Path::new(&cwd));
             }
+            // A second "Start with Windows" launch leaves the running BDM in the tray.
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -228,6 +233,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(desktop::Speeds::default())
         .manage(desktop::PendingOffer::default())
+        .manage(cli::StartupRequests::default())
         .on_window_event(|window, event| {
             if window.label() == "main"
                 && let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -301,6 +307,16 @@ pub fn run() {
 
             app.manage(AppState { database, engine, tools, data_dir: data_dir.clone(), fallback_download_dir });
             desktop::watch_clipboard(app.handle().clone());
+            #[cfg(all(windows, not(debug_assertions)))]
+            if let Err(e) = desktop::register_url_protocol() {
+                eprintln!("[bdm] couldn't register bdm:// links: {e}");
+            }
+            // Links and options BDM was started with wait until the window has loaded.
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            if !args.is_empty() {
+                let cwd = std::env::current_dir().unwrap_or_default();
+                cli::run(app.handle(), &args, &cwd);
+            }
 
             // Local endpoint for the browser helper. A fresh token each launch
             // means only processes that can read this user's AppData get in.
@@ -366,6 +382,7 @@ pub fn run() {
             desktop::get_clipboard_offer,
             desktop::accept_clipboard_offer,
             desktop::dismiss_clipboard_offer,
+            cli::take_startup_requests,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Babarify Download Manager");

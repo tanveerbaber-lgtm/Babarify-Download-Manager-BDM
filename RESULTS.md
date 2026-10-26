@@ -627,3 +627,25 @@ With the installed test build and the reloaded extension:
 - **Checks:** 178 Rust tests (new: extras flags, language parsing, recognising subtitle failures, settings
   validation; the existing real-tool media tests now run with chapters and cover art on). Clippy and TypeScript
   clean; the settings card checked in the sample-data preview.
+
+## M8 — Command line and bdm:// links (2026-10-26)
+
+- **Parser** (`cli.rs`): `--add <url>`, bare http(s) links, `--name`, `--folder` and `--import` (relative to the
+  current folder), `--queue <name>`, `--start`/`--later`, `--media <url>`, `--import <file>`; `--minimized` (Start
+  with Windows) is ignored here. Problems are collected without dropping the rest; `--name` is ignored for several
+  links. `bdm://add?url=&name=` and `bdm://media?url=` (also `bdm:add?…`); any other parameter (folder, start…) is
+  ignored and other actions are refused.
+- **Trust:** only command-line links with `--start`/`--later` are added without the dialog (a program already
+  running on this PC). Everything else, and every `bdm://` link (any web page can open one), goes through the New
+  Download dialog or the video dialog; problems show a notification.
+- **Delivery:** a second launch hands its arguments to the running BDM through the single-instance plugin. At first
+  launch the requests wait in a queue the main window collects when it has loaded (`take_startup_requests`), so
+  nothing is lost while the window starts; later requests are sent as events. `--import` opens the Batch dialog
+  with the file's links on the List of Links tab.
+- **Registration:** installed (release) builds write `HKCU\Software\Classes\bdm` (URL protocol, icon,
+  `"bdm.exe" "%1"`) on every launch; the uninstaller deletes it. `add_download` and `import_url_list` were split so
+  the command line uses the same validation as the dialogs.
+- **Checks:** 183 Rust tests (5 new: options and relative paths, bare links with media and import, problems kept
+  apart, `bdm://` links can't choose a folder or start, the registered command). Clippy and TypeScript clean. In
+  the sample-data preview, queued startup requests opened the New Download dialog and the Batch dialog filled with
+  three links. Not run against the installed app (a test build can't run beside your BDM: one copy at a time).

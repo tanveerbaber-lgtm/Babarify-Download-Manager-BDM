@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-take-startup-requests"
+description = "Enables the take_startup_requests command without any pre-configured scope."
+commands.allow = ["take_startup_requests"]
+
+[[permission]]
+identifier = "deny-take-startup-requests"
+description = "Denies the take_startup_requests command without any pre-configured scope."
+commands.deny = ["take_startup_requests"]

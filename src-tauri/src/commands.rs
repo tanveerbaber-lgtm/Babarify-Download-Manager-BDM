@@ -51,6 +51,11 @@ pub async fn add_download(
     request: NewDownloadRequest,
     state: State<'_, AppState>,
 ) -> AppResult<Download> {
+    add_file(&state, &request)
+}
+
+/// Shared by the Add dialog and the command line.
+pub(crate) fn add_file(state: &AppState, request: &NewDownloadRequest) -> AppResult<Download> {
     let url = validation::validate_url(&request.url)?;
     let expected_sha256 = match request.expected_sha256.as_deref() {
         Some(raw) => validation::validate_sha256(raw)?,
@@ -72,7 +77,7 @@ pub async fn add_download(
         let conn = state.db()?;
         let queue_id = queue_or_main(&conn, request.queue_id.as_deref())?;
         let (destination_dir, category) =
-            placement_in(&conn, &state, request.destination_dir.as_deref(), &file_name, request.category.as_deref())?;
+            placement_in(&conn, state, request.destination_dir.as_deref(), &file_name, request.category.as_deref())?;
         downloads::insert(
             &conn,
             &downloads::InsertDownload {
@@ -170,16 +175,20 @@ pub async fn expand_batch_pattern(pattern: String) -> AppResult<Vec<String>> {
 /// Reads the links from a text file the user picked.
 #[tauri::command]
 pub async fn import_url_list(path: String) -> AppResult<Vec<String>> {
+    read_url_list(&PathBuf::from(path.trim()))
+}
+
+/// The http(s) links in a .txt or .csv file (Batch dialog, `--import`).
+pub(crate) fn read_url_list(path: &Path) -> AppResult<Vec<String>> {
     const MAX_SIZE: u64 = 2 * 1024 * 1024;
-    let path = PathBuf::from(path.trim());
     let is_text = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("txt") || e.eq_ignore_ascii_case("csv"));
     if !path.is_absolute() || !is_text {
         return Err(AppError::Validation("Choose a .txt file with one link per line.".into()));
     }
-    if std::fs::metadata(&path)?.len() > MAX_SIZE {
+    if std::fs::metadata(path)?.len() > MAX_SIZE {
         return Err(AppError::Validation("That file is too large for a link list.".into()));
     }
-    let bytes = std::fs::read(&path)?;
+    let bytes = std::fs::read(path)?;
     let urls = batch::extract_urls(&String::from_utf8_lossy(&bytes));
     if urls.is_empty() {
         return Err(AppError::Validation("No http or https links were found in that file.".into()));
@@ -607,6 +616,15 @@ pub(crate) fn propose_file(
         duplicate,
         resume_candidate,
     })
+}
+
+/// A queue's id from its name as shown (case doesn't matter), for `--queue`.
+pub(crate) fn queue_id_by_name(state: &AppState, name: &str) -> AppResult<String> {
+    queues::list(&*state.db()?)?
+        .into_iter()
+        .find(|q| q.name.eq_ignore_ascii_case(name.trim()) || q.id == name.trim())
+        .map(|q| q.id)
+        .ok_or_else(|| AppError::Validation(format!("There's no queue called \"{}\".", name.trim())))
 }
 
 /// A paused or failed file download that a new browser download of

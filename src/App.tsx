@@ -37,6 +37,7 @@ export default function App() {
   const [addTab, setAddTab] = useState<Tab>("file");
   const [addMediaUrl, setAddMediaUrl] = useState<string | undefined>();
   const [batchOpen, setBatchOpen] = useState(false);
+  const [batchLinks, setBatchLinks] = useState<string[] | undefined>();
   /** `undefined` = closed, `null` = new queue. */
   const [editingQueue, setEditingQueue] = useState<Queue | null | undefined>(undefined);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -64,6 +65,11 @@ export default function App() {
         setView("all");
         openAdd("file");
       }),
+      // bdm.exe --import links.txt
+      listen<string[]>(EVENTS.importLinks, ({ payload }) => {
+        setBatchLinks(payload);
+        setBatchOpen(true);
+      }),
       listen<BrowserMedia>(EVENTS.browserMedia, ({ payload }) => {
         setView("all");
         setAddOpen(false);
@@ -74,6 +80,20 @@ export default function App() {
     return () => {
       for (const s of stops) void s.then((stop) => stop());
     };
+  }, [notify, openAdd]);
+
+  // Links BDM was started with (command line, bdm://) that arrived before this window loaded.
+  useEffect(() => {
+    void api.takeStartupRequests().then((requests) => {
+      for (const r of requests) {
+        if (r.kind === "confirm") setProposals((p) => [...p, r.proposal]);
+        else if (r.kind === "media") openAdd("media", r.url);
+        else if (r.kind === "import") {
+          setBatchLinks(r.links);
+          setBatchOpen(true);
+        } else notify(`Added: ${r.download.fileName}`);
+      }
+    });
   }, [notify, openAdd]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -465,7 +485,17 @@ export default function App() {
           onCategoriesChanged={refreshQueues}
         />
       )}
-      <BatchDialog key={`batch-${batchOpen}`} open={batchOpen} queues={queues} onClose={() => setBatchOpen(false)} onAdd={addBatch} />
+      <BatchDialog
+        key={`batch-${batchOpen}`}
+        open={batchOpen}
+        queues={queues}
+        initialLinks={batchLinks}
+        onClose={() => {
+          setBatchOpen(false);
+          setBatchLinks(undefined);
+        }}
+        onAdd={addBatch}
+      />
       {editingQueue !== undefined && (
         <QueueDialog
           queue={editingQueue}
