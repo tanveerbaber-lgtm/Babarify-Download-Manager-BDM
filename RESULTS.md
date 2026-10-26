@@ -368,3 +368,9 @@ user's own programs can't see them.
 - Fix: your data (7 downloads, settings, media tools) was exported to `E:\BDM Data Export\com.babarify.bdm`
   (integrity check ok), the container copy was uninstalled, and the real install is done by you from Explorer.
   The M7 install and browser items are back to "confirm on real Windows".
+
+### Real install confirmed (2026-10-26)
+
+You installed `Babarify Download Manager_1.0.0_x64-setup.exe` from Explorer (outside Claude), restored
+`E:\BDM Data Export\com.babarify.bdm` to `%APPDATA%`, started BDM and fully restarted Chrome: the extension connects
+and all downloads are present. Edge on real Windows hasn't been checked yet.
