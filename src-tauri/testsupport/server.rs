@@ -86,6 +86,7 @@ pub struct Logged {
     pub path: String,
     pub range: Option<String>,
     pub if_range: Option<String>,
+    pub cookie: Option<String>,
 }
 
 #[derive(Default)]
@@ -132,6 +133,8 @@ impl TestServer {
         let app = Router::new()
             .route("/files/{name}", get(serve_file))
             .route("/redirect/{name}", get(redirect))
+            .route("/guarded/{name}", get(guarded_file))
+            .route("/tokened/{name}", get(tokened_file))
             .route("/status/{code}", get(status))
             .route("/api/{*path}", get(api_json))
             .route("/page/{name}", get(html_page))
@@ -208,6 +211,7 @@ async fn serve_file(
         path: format!("/files/{name}"),
         range: range_header.clone(),
         if_range: if_range.clone(),
+        cookie: get_header(header::COOKIE),
     });
 
     let Some(spec) = state.files.lock().unwrap().get(&name).cloned() else {
@@ -309,6 +313,30 @@ async fn api_json(State(state): State<Arc<ServerState>>, Path(path): Path<String
 async fn html_page(Path(name): Path<String>) -> impl IntoResponse {
     let body = format!("<!doctype html><html><head><title>{name}</title></head><body><p>No video here.</p></body></html>");
     ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body)
+}
+
+/// Serves a file only to requests with a `Referer`, like CDNs that only play
+/// their streams on the site's own pages.
+async fn guarded_file(State(state): State<Arc<ServerState>>, Path(name): Path<String>, headers: HeaderMap) -> Response {
+    if headers.get(header::REFERER).is_none() {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let Some(spec) = state.files.lock().unwrap().get(&name).cloned() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let data = spec.data.lock().unwrap().clone();
+    let kind = if name.ends_with(".m3u8") { "application/vnd.apple.mpegurl" } else { "video/mp2t" };
+    ([(header::CONTENT_TYPE, kind)], data.to_vec()).into_response()
+}
+
+/// Serves a file only with the header a page's player script adds.
+async fn tokened_file(state: State<Arc<ServerState>>, Path(name): Path<String>, headers: HeaderMap) -> Response {
+    if headers.get("x-stream-token").and_then(|v| v.to_str().ok()) != Some("ok") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let mut with_referer = headers.clone();
+    with_referer.insert(header::REFERER, HeaderValue::from_static("http://page.test/"));
+    guarded_file(state, Path(name), with_referer).await
 }
 
 async fn redirect(Path(name): Path<String>) -> impl IntoResponse {

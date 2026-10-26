@@ -13,8 +13,10 @@ What Babarify Download Manager doesn't do (yet), and where its behavior may surp
 ## Protocols and links
 
 - **HTTP and HTTPS only.** FTP, SFTP, BitTorrent and magnet links, `file:` and `data:` URLs are not supported.
-- **No sign-in downloads.** Links that need a password, an HTTP login or the browser's cookies fail with a clear
-  message. Links with a user name or password inside them (`https://user:pass@…`) are refused on purpose.
+- **Sign-in downloads need the browser.** Sites that need you signed in work once you allow them under
+  "Sign-in downloads" in the extension's options; BDM then uses the browser's cookies for that site, kept in memory
+  for up to 12 hours. After BDM restarts, start such downloads from the browser again. HTTP logins (a password
+  prompt from the server) aren't supported. Links with a user name or password inside them (`https://user:pass@…`) are refused on purpose.
 - **File names come from the link.** BDM doesn't read the server's `Content-Disposition` name; when the browser sends
   a download, the browser's chosen name is used. You can always type a name in the Add dialog.
 - **HTTPS stays HTTPS.** A server that redirects from HTTPS to plain HTTP is refused.
@@ -27,8 +29,18 @@ What Babarify Download Manager doesn't do (yet), and where its behavior may surp
 ## Video and audio
 
 - **Sites:** whatever yt-dlp supports. Sites change often; if one breaks, update yt-dlp in Settings → Media tools.
+- **Other sites (video panel only):** when yt-dlp can't read a page, the panel tries the video the page's player is
+  using: its file address, or an HLS/DASH stream (`.m3u8`/`.mpd`) the page loaded, sent with the page as referrer.
+  With **media detection** on in the extension, BDM also gets the exact request headers the browser used for each
+  video (not cookies or Authorization), and detected videos are ranked so the main video comes before ads (ads
+  hosts last, master playlists first, a result much shorter than the video being watched is tried last). Streams
+  whose addresses or tokens change on every request can still fail. When a video's server wants the cookies the
+  browser sends it, the panel names that server's site and offers to allow it for sign-in downloads (often the
+  player's host, not the page's site). The panel also finds players built as web components (video inside a shadow
+  root) and players embedded from other sites, titling those with the page's title.
 - **Never downloaded:** DRM-protected media (Netflix, Spotify, Disney+, Prime Video and the like).
-- **Not supported yet:** live streams, private or members-only videos, anything that needs a signed-in account.
+- **Not supported yet:** live streams. Members-only and age-restricted videos need sign-in downloads turned on for
+  the site (see above) and an account that can watch them.
 - **Playlists:** up to 1,000 entries are listed.
 - **Speed limits for media** are passed to yt-dlp when the download starts. Changing a limit applies after a pause
   and resume, and the global limit isn't split exactly between several media downloads running at once.

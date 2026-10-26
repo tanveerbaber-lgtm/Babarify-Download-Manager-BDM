@@ -249,6 +249,34 @@ async fn segmented_download_reassembles_exactly() {
     assert!(segments_cleared(&h, &id));
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn sends_browser_sign_in_cookies_only_to_their_site() {
+    let h = Harness::new().await;
+    let data = test_data(2 * 1024 * 1024, 31);
+    h.server.state.add("member.bin", FileSpec::new(data.clone()).etag("m1"));
+    let cookie = |name: &str, domain: &str| crate::cookies::BrowserCookie {
+        name: name.into(),
+        value: "v".into(),
+        domain: domain.into(),
+        path: "/".into(),
+        secure: false,
+        http_only: true,
+        host_only: true,
+        expires: None,
+    };
+    let url = h.server.url("/files/member.bin");
+    h.engine.cookies().remember(&url, vec![cookie("session", "127.0.0.1")]);
+    h.engine.cookies().remember("https://other.example/", vec![cookie("other", "other.example")]);
+
+    let id = h.add("/files/member.bin", "member.bin");
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert_eq!(read(&d.saved_path), data);
+    let log = h.server.state.requests_for("/files/member.bin");
+    assert!(log.len() > 1, "probe plus segment requests");
+    assert!(log.iter().all(|l| l.cookie.as_deref() == Some("session=v")), "{log:?}");
+}
+
 fn segments_cleared(h: &Harness, id: &str) -> bool {
     downloads::segments(&h.db.lock().unwrap(), id).unwrap().is_empty()
 }

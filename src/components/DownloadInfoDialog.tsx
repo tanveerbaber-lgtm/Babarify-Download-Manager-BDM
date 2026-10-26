@@ -72,7 +72,7 @@ function InfoForm({ proposal, settings, categories, queues, onClose, onAdded, on
       let created: Download[];
       if (isMedia && proposal.options) {
         created = await api.addMediaDownloads({
-          items: [{ url: proposal.url, title: name.trim() || proposal.title || undefined }],
+          items: [{ url: proposal.url, title: name.trim() || proposal.title || undefined, referrer: proposal.referrer ?? undefined }],
           options: proposal.options,
           destinationDir,
           start,

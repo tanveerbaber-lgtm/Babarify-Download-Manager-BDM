@@ -72,6 +72,21 @@ pub fn format_args(options: &MediaOptions) -> Vec<String> {
     }
 }
 
+/// `--referer` and `--add-header` flags. Headers the browser sent for this
+/// video win; otherwise the referrer follows the browser's default policy.
+pub fn request_args(referrer: Option<&str>, url: &str, headers: &[(String, String)]) -> Vec<String> {
+    let mut args = Vec::new();
+    if !headers.iter().any(|(n, _)| n.eq_ignore_ascii_case("referer"))
+        && let Some(r) = crate::engine::http::referrer_for(referrer.filter(|r| !r.is_empty()), url)
+    {
+        args.extend(["--referer".to_string(), r]);
+    }
+    for (name, value) in headers {
+        args.extend(["--add-header".to_string(), format!("{name}:{value}")]);
+    }
+    args
+}
+
 /// The complete argument list for one media download.
 pub fn download_args(
     tools: &ToolPaths,
@@ -79,6 +94,7 @@ pub fn download_args(
     temp_dir: &Path,
     fragments: u32,
     referrer: Option<&str>,
+    headers: &[(String, String)],
     url: &str,
 ) -> Vec<String> {
     let s = |v: &str| v.to_string();
@@ -112,9 +128,7 @@ pub fn download_args(
     if let Some(deno) = &tools.deno {
         args.extend([s("--js-runtimes"), format!("deno:{}", deno.display())]);
     }
-    if let Some(r) = crate::engine::http::referrer_for(referrer.filter(|r| !r.is_empty()), url) {
-        args.extend([s("--referer"), r]);
-    }
+    args.extend(request_args(referrer, url, headers));
     args.extend(format_args(options));
     // "--" ends option parsing, so the URL can never be read as a flag.
     args.extend([s("--"), s(url)]);
@@ -168,11 +182,24 @@ mod tests {
     }
 
     #[test]
+    fn captured_headers_replace_the_guessed_referrer() {
+        let headers = vec![
+            ("Referer".to_string(), "https://site.com/watch?v=1".to_string()),
+            ("Origin".to_string(), "https://site.com".to_string()),
+        ];
+        assert_eq!(
+            request_args(Some("https://site.com/other"), "https://cdn.net/v.m3u8", &headers),
+            ["--add-header", "Referer:https://site.com/watch?v=1", "--add-header", "Origin:https://site.com"]
+        );
+        assert_eq!(request_args(Some("https://site.com/p"), "https://cdn.net/v", &[]), ["--referer", "https://site.com/"]);
+    }
+
+    #[test]
     fn url_comes_after_double_dash() {
         let tools = ToolPaths { yt_dlp: PathBuf::from("y.exe"), ffmpeg: PathBuf::from("C:\\t\\ffmpeg.exe"), deno: Some(PathBuf::from("C:\\t\\deno.exe")) };
-        let args = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://e.com/page"), "https://e.com/v");
+        let args = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://e.com/page"), &[], "https://e.com/v");
         assert!(args.windows(2).any(|w| w == ["--referer", "https://e.com/page"]));
-        let other = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://site.com/watch?session=secret"), "https://cdn.net/v");
+        let other = download_args(&tools, &MediaOptions::Audio { format: AudioFormat::Best }, Path::new("C:\\tmp"), 4, Some("https://site.com/watch?session=secret"), &[], "https://cdn.net/v");
         assert!(other.windows(2).any(|w| w == ["--referer", "https://site.com/"]), "only the origin goes to another site");
         let n = args.len();
         assert_eq!(&args[n - 2..], ["--", "https://e.com/v"]);

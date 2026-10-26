@@ -4,12 +4,14 @@ mod batch;
 pub mod browser;
 mod commands;
 mod completion;
+mod cookies;
 mod db;
 mod engine;
 mod error;
 mod media;
 mod models;
 mod net_guard;
+mod request_headers;
 mod state;
 mod title_bar;
 mod validation;
@@ -29,6 +31,7 @@ use crate::engine::events::{
 use crate::browser::ipc;
 use crate::browser::protocol::{BrowserRequest, BrowserResponse};
 use crate::engine::{Engine, EngineConfig};
+use crate::error::AppError;
 use crate::media::tools::{self, ToolManager};
 use crate::models::Download;
 use crate::state::AppState;
@@ -118,8 +121,21 @@ fn show_on_browser_add(state: &AppState) -> bool {
 }
 
 /// Handles a request from the extension, relayed by the native host.
-async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> BrowserResponse {
+async fn handle_browser_request(app: AppHandle, mut request: BrowserRequest) -> BrowserResponse {
     let state = app.state::<AppState>();
+    // Sign-in cookies (validated by the pipe server) stay in memory for later
+    // requests to the same site, including ones started from BDM's window.
+    let had_cookies = match request.take_cookies() {
+        Some((url, cookies)) => {
+            let any = !cookies.is_empty();
+            state.engine.cookies().remember(&url, cookies);
+            any
+        }
+        None => false,
+    };
+    if let Some((url, headers)) = request.take_headers() {
+        state.engine.request_headers().remember(&url, headers);
+    }
     match request {
         BrowserRequest::Ping => BrowserResponse::running(&app.package_info().version.to_string()),
         BrowserRequest::Download { url, file_name, referrer, size, .. } if confirm_browser_downloads(&state) => {
@@ -140,13 +156,13 @@ async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> Brow
                 Err(e) => BrowserResponse::error(e.to_string()),
             }
         }
-        BrowserRequest::Media { url, page_title } => {
+        BrowserRequest::Media { url, page_title, .. } => {
             // Media needs a quality choice, so it opens the dialog rather than starting.
             let _ = app.emit(EVENT_BROWSER_MEDIA, BrowserMedia { url, page_title });
             show_main_window(&app);
             BrowserResponse::ok()
         }
-        BrowserRequest::Formats { url } => {
+        BrowserRequest::Formats { url, referrer, .. } => {
             let tools = match state.tools.require() {
                 Ok(t) => t,
                 Err(e) => return BrowserResponse::error(e.to_string()),
@@ -156,22 +172,28 @@ async fn handle_browser_request(app: AppHandle, request: BrowserRequest) -> Brow
             {
                 return BrowserResponse::error(b.to_string());
             }
-            match media::analyze::analyze(&tools, &url).await {
+            let cookies = match state.engine.cookies().file_for(&url) {
+                Ok(c) => c,
+                Err(e) => return BrowserResponse::error(e.to_string()),
+            };
+            let headers = state.engine.request_headers().for_url(&url);
+            match media::analyze::analyze(&tools, &url, referrer.as_deref(), &headers, cookies.as_ref().map(|c| c.path())).await {
                 Ok(info) => match media::choices::media_choices(&info) {
                     Ok(choices) => BrowserResponse::with_media(choices),
                     Err(message) => BrowserResponse::error(message),
                 },
+                Err(AppError::Validation(message)) => BrowserResponse::media_error(message, had_cookies),
                 Err(e) => BrowserResponse::error(e.to_string()),
             }
         }
-        BrowserRequest::MediaDownload { url, title, options, label, size } if confirm_browser_downloads(&state) => {
-            match commands::propose_media(&state, &url, title.as_deref(), &options, label.as_deref(), size) {
+        BrowserRequest::MediaDownload { url, title, options, label, size, referrer, .. } if confirm_browser_downloads(&state) => {
+            match commands::propose_media(&state, &url, title.as_deref(), &options, label.as_deref(), size, referrer.as_deref()) {
                 Ok(p) => ask_user(&app, p),
                 Err(e) => BrowserResponse::error(e.to_string()),
             }
         }
-        BrowserRequest::MediaDownload { url, title, options, .. } => {
-            let items = [commands::MediaItem { url, title }];
+        BrowserRequest::MediaDownload { url, title, options, referrer, .. } => {
+            let items = [commands::MediaItem { url, title, referrer }];
             match commands::add_media(&state, &items, &options, None, true) {
                 Ok(created) => {
                     for d in &created {

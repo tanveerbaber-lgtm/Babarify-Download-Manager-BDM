@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — v1.0.0 release installer replaced with the audit-fix build (New Download dialog, Mark of the Web, navy headers); release notes refreshed. Tag moved to 34fb97b. Open: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — Panel handles more player setups: videos inside shadow DOM, players embedded from other sites (page title used), and servers that want the browser's cookies (offers sign-in for that server's site). Not yet tried in your Chrome. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -17,7 +17,8 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
-| **Total** | **66** | **7** | **73** | |
+| After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
+| **Total** | **66** | **9** | **75** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -228,3 +229,32 @@ Package BDM for installation, maintenance and possible public distribution.
   - [x] Release checklist written (RELEASE.md); automated checks pass; install, upgrade, uninstall and browser checks done
   - [x] Tagged `v1.0.0` and published the GitHub release (private repo) with the installer, extension zip and SHA256SUMS
   - [ ] Code signing (needs a certificate) and the clean-PC test
+
+## After 1.0 — Power features
+Features from the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), added one at a time.
+- [~] Sign-in downloads (browser cookies for sites you allow). *(check in your Chrome left)*
+  - [x] Extension: "Sign-in downloads" in the options, one site at a time with its own cookie permission; never private windows
+  - [x] The video panel offers "Use My Browser Sign-In" when a site wants a sign-in, opening the options with the site filled in
+  - [x] BDM keeps the cookies in memory only (12 hours, gone on restart) and checks each belongs to the requested site
+  - [x] Videos: yt-dlp gets a temporary cookies file, deleted when it finishes (checked with the real yt-dlp)
+  - [x] Files: the Cookie header goes only to the cookie's own host (engine test)
+  - [ ] Your Chrome: reload the extension, allow youtube.com, retry the video that asked for a sign-in
+- [~] Stream capture: the video panel uses the page's player when yt-dlp can't read the page. *(check in your Chrome left)*
+  - [x] BDM marks "unsupported site" replies; the panel then tries the player's file address and the `.m3u8`/`.mpd`
+        streams the page loaded (no extra permission), skipping `blob:` sources and stream segments
+  - [x] The page goes along as referrer for analysis and the download; choices are titled with the page's title
+  - [x] DRM: a player using encrypted media is refused before anything is sent; yt-dlp's DRM check still applies
+  - [x] Real yt-dlp test: an HLS stream that the server only serves with a referrer is read and downloaded to MP4
+  - [x] Panel test in Chrome (stubbed BDM): page refused → stream tried with the page as referrer → choices shown
+  - [ ] Your Chrome: a site yt-dlp doesn't support that you're allowed to download from
+  - [x] With media detection on, the browser's request headers for each detected video go to yt-dlp
+        (User-Agent, Referer, Origin, Accept, Accept-Language, page `X-` headers; never cookies or Authorization)
+  - [x] Main video before ads: detected media ranked (ad hosts last, master playlists first, larger files first);
+        a result much shorter than the video being watched is tried last
+  - [x] Real yt-dlp test: a stream served only with a page-added `X-Stream-Token` header is read and downloaded
+  - [x] Panel test in Chrome (stubbed BDM): a 15 s ad stream listed first is skipped for the 90 s main stream
+  - [x] Players built as web components: the panel finds a `<video>` inside open shadow roots
+  - [x] Players embedded from another site: the download takes the tab's title, not the frame's
+  - [x] Servers that want the browser's cookies: the panel names that server's site and offers sign-in for it
+        (the site must be the tab's or one media detection saw on that tab)
+  - [x] Chrome tests (stubbed BDM) for all three: shadow-DOM player, cross-origin frame, cookie refusal → sign-in

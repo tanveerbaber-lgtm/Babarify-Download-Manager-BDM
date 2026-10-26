@@ -43,6 +43,8 @@ pub(super) struct TaskContext {
     pub cancel: CancellationToken,
     pub tools: Arc<ToolManager>,
     pub guard: Arc<crate::net_guard::NetGuard>,
+    pub cookies: Arc<crate::cookies::CookieJar>,
+    pub headers: Arc<crate::request_headers::HeaderStore>,
 }
 
 /// Downloads `id` to completion. Returns `Err(Stopped)` when cancelled.
@@ -80,7 +82,10 @@ async fn attempt(ctx: &TaskContext, id: &str) -> EngineResult<()> {
     if let Ok(url) = url::Url::parse(&download.url) {
         ctx.guard.check_literal(&url).map_err(|b| EngineError::Blocked(b.to_string()))?;
     }
-    let remote = with_retries(ctx, || http::probe(&ctx.client, &download.url, download.referrer.as_deref())).await?;
+    let cookie = ctx.cookies.header_for(&download.url);
+    let mut remote =
+        with_retries(ctx, || http::probe(&ctx.client, &download.url, download.referrer.as_deref(), cookie.as_deref())).await?;
+    remote.cookie = ctx.cookies.header_for(&remote.final_url);
 
     let temp_exists = download.temp_path.as_deref().is_some_and(|p| Path::new(p).exists());
     let has_progress = download.downloaded_bytes > 0 || temp_exists;

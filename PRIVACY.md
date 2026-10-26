@@ -32,8 +32,18 @@ BDM doesn't send your download list, settings or any identifier to Babarify or a
 ## The browser extension
 
 - When **Capture downloads** is on, it passes the link, file name, size and referring page of a download you start
-  to BDM on your PC (through Chrome's / Edge's native messaging). It doesn't read pages, cookies, passwords or
-  browsing history.
+  to BDM on your PC (through Chrome's / Edge's native messaging). It doesn't read pages, passwords or browsing
+  history, and it reads no cookies unless you turn on sign-in downloads for a site (below).
+- **Sign-in downloads** are off until you add a site in the extension's options and grant cookie access for that
+  site alone. Then, for requests to that site only (never from private windows), the extension sends BDM the
+  cookies the browser would send to it, so downloads work while you're signed in. BDM keeps them in memory only,
+  never saves them to disk except as a temporary file handed to yt-dlp and deleted when it finishes, forgets them
+  after 12 hours or when it closes, and sends each cookie only to the site it belongs to. Removing the site in the
+  options stops this and withdraws the permission.
+- **Video detection** also notes, for each video a page loads, the request headers the browser sent that describe
+  the request (User-Agent, Referer, Origin, Accept, Accept-Language and the page's own `X-` headers; never cookies
+  or Authorization). They stay in the browser's memory for that tab and go to BDM only with that video when you
+  choose it; BDM keeps them in memory for up to 12 hours and passes them to yt-dlp for that video.
 - **Video detection** and the **on-video panel** are off until you turn them on and grant site access. Then the
   extension looks for video on the pages you visit and, only when you click it, sends that page's address to BDM to
   list formats.

@@ -1937,6 +1937,12 @@ code {
   box-shadow: 0 6px 14px rgba(220, 38, 38, 0.22);
 }
 
+/* Stays red on hover (the soft hover above would hide the white label). */
+.button.danger:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #fff;
+}
+
 .button.small {
   border-radius: 999px;
 }
@@ -2836,8 +2842,9 @@ select,
   height: 36px;
 }
 
-/* ---------- Navy headers (dialogs and the download window) ----------
-   Header bands use the sidebar's Babarify navy with white text. */
+/* ---------- Navy dialog headers ----------
+   Header bands use the sidebar's Babarify navy with white text. The download
+   window keeps light tabs; only its Windows title bar is navy (title_bar.rs). */
 
 .modal-header {
   background: var(--sidebar);
@@ -2867,39 +2874,198 @@ select,
   padding-top: 14px;
 }
 
-/* Tab strips at the top of dialogs and the download window */
-.modal .tabs,
-.dlw-tabs {
+/* Tab strips at the top of dialogs */
+.modal .tabs {
   background: var(--sidebar);
   border-bottom: 0;
   border-radius: 12px 12px 0 0;
   padding: 8px 12px 0;
 }
 
-.modal .tabs button,
-.dlw-tabs button {
+.modal .tabs button {
   color: #94a3b8;
   border-bottom-color: transparent;
 }
 
-.modal .tabs button:hover,
-.dlw-tabs button:hover {
+.modal .tabs button:hover {
   color: #e2e8f0;
 }
 
-.modal .tabs button[aria-selected="true"],
-.dlw-tabs button[aria-selected="true"] {
+.modal .tabs button[aria-selected="true"] {
   color: #fff;
   border-bottom-color: #60a5fa;
 }
 
-/* The download window's tab strip runs edge to edge as its header. */
-.dlw {
-  padding-top: 0;
+/* ---------- Tighter windows ----------
+   Dialog headers match the 32px Windows title bar, and the download window's
+   tabs sit right under its title bar. */
+
+.modal-header {
+  min-height: 32px;
+  padding: 2px 4px 2px 14px;
 }
 
-.dlw-tabs {
-  margin: 0 -12px;
-  border-radius: 0;
-  padding: 6px 12px 0;
+.modal-header h2 {
+  font-size: 13.5px;
 }
+
+.modal-header .icon-button {
+  width: 28px;
+  height: 28px;
+}
+
+.modal-header + .modal-body,
+.tabs + .modal-body,
+.tabs + form .modal-body {
+  padding-top: 10px;
+}
+
+.modal-body {
+  gap: 8px;
+  padding: 10px 14px 10px;
+}
+
+.modal-footer {
+  padding: 7px 14px;
+}
+
+.info-head {
+  padding: 7px 10px;
+}
+
+.info-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.dlw {
+  gap: 6px;
+  padding: 2px 10px 10px;
+}
+
+.dlw .dlw-tabs {
+  padding: 0;
+}
+
+.dlw-tabs button {
+  padding: 6px 9px 5px;
+}
+
+.dlw-panel {
+  padding: 8px 10px;
+}
+
+.dlw-grid {
+  /* minmax(0, ...) lets a long address shrink instead of widening the window. */
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 3px 10px;
+  font-size: 12px;
+}
+
+.dlw-table th,
+.dlw-table td {
+  padding: 2px 8px;
+}
+
+/* ---------- Standard type scale (all windows) ----------
+   Arial body text at --text-body, Arial Bold only for titles and headings,
+   captions at --text-caption. Declared last so it wins over earlier tuning. */
+
+body,
+.modal-body,
+.button,
+.button.small,
+.search,
+.nav-item,
+.tabs button,
+.dlw-tabs button,
+.segmented button,
+.check,
+.check.small,
+.time-input,
+.field input,
+.field select,
+.field textarea,
+.context-menu,
+.toast,
+.dlw-grid,
+.dlw-table,
+.format-row,
+.playlist li,
+.file-name,
+.downloads .num,
+.links-input,
+.batch-preview,
+.form-error,
+.advanced summary,
+.about-links,
+.field-label-row .link-button {
+  font-size: var(--text-body);
+}
+
+/* Body weight: selection shows with colour, underline or background, not bold. */
+.button,
+.tabs button,
+.dlw-tabs button,
+.tabs button[aria-selected="true"],
+.dlw-tabs button[aria-selected="true"],
+.nav-item,
+.nav-item[aria-current="page"],
+.segmented button[aria-checked="true"],
+.dlw-status,
+.link-button,
+.advanced summary {
+  font-weight: var(--weight-body);
+}
+
+/* Captions */
+.hint,
+.info-sub,
+.file-host,
+.progress-text,
+.statusbar,
+.stat-label,
+.downloads th,
+.dlw-map-label,
+.nav-count,
+.nav-heading,
+.queue-state,
+.queue-pill,
+.brand-sub,
+.about-copy,
+.chip,
+.status,
+.badge,
+.info-chip,
+.ext-tag,
+.limit-tag {
+  font-size: var(--text-caption);
+}
+
+/* Titles: dialog and card titles, the item a dialog is about, field labels */
+.modal h2,
+.modal-header h2,
+.card h2,
+.info-title,
+.media-title,
+.dlw-name,
+.setting-title,
+.empty h2,
+.brand-name {
+  font-size: var(--text-title);
+  font-weight: var(--weight-title);
+}
+
+.field-label {
+  font-size: var(--text-body);
+  font-weight: var(--weight-title);
+}
+
+/* Headings: the page heading, totals and the "download complete" heading */
+.topbar h1,
+.dlw-complete h1,
+.stat-value {
+  font-size: var(--text-heading);
+  font-weight: var(--weight-title);
+}
+

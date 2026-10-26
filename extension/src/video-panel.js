@@ -6,6 +6,19 @@
   window.__bdmVideoPanel = true;
 
   const MIN_WIDTH = 240;
+  const STREAM_URL = /\.(m3u8|mpd)(\?|#|$)/i;
+  const FILE_URL = /\.(mp4|webm|mkv|mov|m4v)(\?|#|$)/i;
+  /** Pieces of adaptive streams aren't useful on their own. */
+  const SEGMENT_URL = /\.(ts|m4s)(\?|#|$)|[?&](range|bytestart)=|\/seg-?\d+/i;
+  /** Most player sources tried when BDM can't read the page itself. */
+  const MAX_SOURCES = 5;
+
+  // Keep enough network entries that a stream's master playlist isn't dropped.
+  try {
+    performance.setResourceTimingBufferSize(1000);
+  } catch {
+    // Not available in this frame.
+  }
   const MIN_HEIGHT = 135;
   const BAR_HEIGHT = 26;
 
@@ -46,6 +59,8 @@
     .note { padding: 7px 8px; color: #94a3b8; font-size: 11.5px; }
     .ok { padding: 8px; color: #6ee7b7; font-weight: 600; }
     .err { padding: 8px; color: #fca5a5; font-size: 11.5px; }
+    .signin { display: block; margin: 0 8px 8px; padding: 5px 10px; border-radius: 999px; font-weight: 600; font-size: 11.5px; color: #fff; text-align: center; background: linear-gradient(90deg, #2563eb, #10b981); }
+    .signin:hover { filter: brightness(1.1); }
     .license { margin: 3px 3px 1px; padding: 4px 4px 2px; border-top: 1px solid rgba(255, 255, 255, .08); color: #6ee7b7; font-size: 10px; }
     .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid rgba(148, 163, 184, .35); border-top-color: #60a5fa; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -89,11 +104,23 @@
     return w > 0 && h > 0 ? w * h : 0;
   }
 
+  /** Videos inside open shadow roots (players built as web components). */
+  function shadowVideos(root, out = []) {
+    for (const el of root.querySelectorAll("*")) {
+      if (!el.shadowRoot) continue;
+      out.push(...el.shadowRoot.querySelectorAll("video"));
+      shadowVideos(el.shadowRoot, out);
+    }
+    return out;
+  }
+
   /** The largest visible video that has media loaded. */
   function pickVideo() {
     let best = null;
     let bestArea = 0;
-    for (const v of document.querySelectorAll("video")) {
+    // The deeper search only runs on pages without a plain <video>.
+    const plain = document.querySelectorAll("video");
+    for (const v of plain.length ? plain : shadowVideos(document)) {
       if (dismissed.has(v) || v.readyState === 0) continue;
       const area = visibleArea(v);
       if (area > bestArea) {
@@ -174,28 +201,117 @@
     });
   }
 
+  /** An error, plus "Use My Browser Sign-In" when that would help. */
+  function showError(reply, fallback) {
+    const parts = [note("err", reply.error || fallback)];
+    if (reply.signIn) {
+      const b = document.createElement("button");
+      b.className = "signin";
+      b.textContent = "Use My Browser Sign-In";
+      b.title = "Let BDM use your sign-in for this site";
+      b.addEventListener("click", () => {
+        send(reply.signInSite ? { type: "allowSignIn", site: reply.signInSite } : { type: "allowSignIn" });
+        menu.replaceChildren(note("note", "Allow the site in the page that opened, then try again here."));
+      });
+      parts.push(b);
+    }
+    menu.replaceChildren(...parts);
+  }
+
+  const usable = (u) => u && /^https?:/i.test(u) && !SEGMENT_URL.test(u);
+
+  /** The player's own source, when it's a real address (players that build the video in the page show blob:). */
+  function playerAddresses(v) {
+    return v ? [v.currentSrc, v.src, ...[...v.querySelectorAll("source")].map((s) => s.src)].filter(usable) : [];
+  }
+
+  /** Streams and video files the page loaded; load order puts a master playlist before its variants. */
+  function loadedMedia() {
+    const loaded = performance.getEntriesByType("resource").map((e) => e.name).filter(usable);
+    return [...loaded.filter((u) => STREAM_URL.test(u)), ...loaded.filter((u) => FILE_URL.test(u)).reverse()];
+  }
+
+  /** What media detection saw on this tab, main video first, and the tab's title. */
+  async function detectedOnTab() {
+    const reply = await send({ type: "detectedMedia" });
+    return { urls: Array.isArray(reply?.media) ? reply.media.map((m) => m.url) : [], title: String(reply?.title ?? "") };
+  }
+
+  /** The page's title; a player inside a frame uses the tab's, not its own. */
+  function pageTitle(tabTitle) {
+    const own = document.title.trim();
+    return window.top === window ? own || tabTitle : tabTitle || own;
+  }
+
+  /**
+   * A result much shorter than the video being watched is probably an ad
+   * (or a preview), so other sources are tried before settling for it.
+   */
+  function looksLikeAd(media) {
+    const watching = video?.duration;
+    return Number.isFinite(watching) && watching > 60 && media?.duration > 0 && media.duration < watching * 0.6;
+  }
+
+  /** Asks BDM about each player source in turn; the first it can read wins. */
+  async function fromPlayer(pageUrl) {
+    if (video?.mediaKeys) {
+      return { ok: false, error: "This video is protected by DRM. BDM doesn't download DRM-protected content." };
+    }
+    // The player's own address first, then media detection's list (which
+    // carries the browser's exact request headers), then what the page loaded.
+    const detected = await detectedOnTab();
+    const sources = [...new Set([...playerAddresses(video), ...detected.urls, ...loadedMedia()])].slice(0, MAX_SOURCES);
+    if (!sources.length) {
+      return { ok: false, error: "This website isn't supported, and BDM couldn't find the video file its player is using." };
+    }
+    let last = null;
+    let short = null;
+    for (const src of sources) {
+      const reply = await send({ type: "formats", url: src, referrer: pageUrl });
+      if (reply.ok && !looksLikeAd(reply.media)) return { ...reply, source: src, title: pageTitle(detected.title) };
+      if (reply.ok) {
+        short ??= { ...reply, source: src, title: pageTitle(detected.title) };
+        continue;
+      }
+      last = reply;
+      // DRM or a sign-in applies to the whole video; other sources won't help.
+      if (reply.signIn || /DRM/.test(reply.error ?? "")) return reply;
+    }
+    return short ?? { ok: false, error: last?.error || "BDM couldn't read the video this page is playing." };
+  }
+
+  /** Formats for the page, falling back to its player when yt-dlp can't read the page. */
+  async function lookUp(url) {
+    const reply = await send({ type: "formats", url });
+    if (reply.ok || !reply.unsupported) return reply;
+    return fromPlayer(url);
+  }
+
   async function openMenu() {
     const url = location.href;
     menu.replaceChildren(note("note", "Getting Formats From BDM…", true));
     menu.classList.add("show");
     main.setAttribute("aria-expanded", "true");
 
-    if (!formats.has(url)) formats.set(url, send({ type: "formats", url }));
+    if (!formats.has(url)) formats.set(url, lookUp(url));
     const reply = await formats.get(url);
     if (url !== location.href || !menu.classList.contains("show")) return;
     if (!reply.ok) {
       formats.delete(url); // Let the user retry.
-      menu.replaceChildren(note("err", reply.error || "BDM couldn't read this video."));
+      showError(reply, "BDM couldn't read this video.");
       return;
     }
 
     const media = reply.media;
+    // A stream from the player has no useful title of its own; use the page's.
+    const title = reply.source ? reply.title || media.title : media.title;
     const items = [];
-    const title = document.createElement("div");
-    title.className = "title";
-    title.textContent = media.title;
-    title.title = media.title;
-    items.push(title);
+    const heading = document.createElement("div");
+    heading.className = "title";
+    heading.textContent = title;
+    heading.title = title;
+    items.push(heading);
+    if (reply.source) items.push(note("group", "From This Page's Player"));
     let group = "";
     for (const choice of media.choices) {
       if (choice.kind !== group) {
@@ -207,7 +323,7 @@
       b.setAttribute("role", "menuitem");
       b.title = choice.label;
       b.append(...describeChoice(choice));
-      b.addEventListener("click", () => download(url, media.title, choice));
+      b.addEventListener("click", () => download(reply.source ?? url, title, choice, reply.source ? url : undefined));
       items.push(b);
     }
     if (media.license) items.push(note("license", `License: ${media.license}`));
@@ -248,14 +364,14 @@
     return [tag, name, size];
   }
 
-  async function download(url, title, choice) {
+  async function download(url, title, choice, referrer) {
     menu.replaceChildren(note("note", `Sending ${choice.label} To BDM…`, true));
-    const reply = await send({ type: "mediaDownload", url, title, options: choice.options, label: choice.label, size: choice.sizeBytes ?? undefined });
+    const reply = await send({ type: "mediaDownload", url, title, options: choice.options, label: choice.label, size: choice.sizeBytes ?? undefined, referrer });
     if (reply.ok) {
       menu.replaceChildren(note("ok", reply.asked ? `✓ Opened In BDM: Confirm ${choice.label} There` : `✓ Downloading In BDM: ${choice.label}`));
       setTimeout(closeMenu, 2500);
     } else {
-      menu.replaceChildren(note("err", reply.error || "BDM couldn't start the download."));
+      showError(reply, "BDM couldn't start the download.");
     }
   }
 
@@ -263,7 +379,7 @@
   // several seconds on some sites, so this makes the list appear sooner.
   wrap.addEventListener("pointerenter", () => {
     const url = location.href;
-    if (!formats.has(url)) formats.set(url, send({ type: "formats", url }));
+    if (!formats.has(url)) formats.set(url, lookUp(url));
   });
 
   main.addEventListener("click", (e) => {

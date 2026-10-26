@@ -310,7 +310,9 @@ pub async fn analyze_media(url: String, state: State<'_, AppState>) -> AppResult
     let url = validation::validate_url(&url)?;
     let tools = state.tools.require()?;
     state.engine.net_guard().check_url(&url).await.map_err(|b| AppError::Validation(b.to_string()))?;
-    analyze::analyze(&tools, url.as_str()).await
+    let cookies = state.engine.cookies().file_for(url.as_str())?;
+    let headers = state.engine.request_headers().for_url(url.as_str());
+    analyze::analyze(&tools, url.as_str(), None, &headers, cookies.as_ref().map(|c| c.path())).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -318,6 +320,9 @@ pub async fn analyze_media(url: String, state: State<'_, AppState>) -> AppResult
 pub struct MediaItem {
     pub url: String,
     pub title: Option<String>,
+    /// The page a stream or file came from (videos taken from a page's player).
+    #[serde(default)]
+    pub referrer: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -378,6 +383,10 @@ pub(crate) fn add_media_in(
         .iter()
         .map(|i| validation::validate_url(&i.url))
         .collect::<AppResult<Vec<_>>>()?;
+    let referrers = items
+        .iter()
+        .map(|i| i.referrer.as_deref().filter(|r| !r.trim().is_empty()).map(validation::validate_url).transpose())
+        .collect::<AppResult<Vec<_>>>()?;
     let ext = expected_extension(options);
 
     let created = {
@@ -385,7 +394,7 @@ pub(crate) fn add_media_in(
         let (destination_dir, category) = placement_in(&conn, state, destination_dir, &format!("x.{ext}"), category)?;
         let dest = destination_dir.to_string_lossy();
         let mut created = Vec::with_capacity(urls.len());
-        for (item, url) in items.iter().zip(&urls) {
+        for ((item, url), referrer) in items.iter().zip(&urls).zip(&referrers) {
             let title = item.title.as_deref().map(str::trim).filter(|t| !t.is_empty());
             let base = title.map(validation::sanitize_file_name).unwrap_or_else(|| validation::file_name_from_url(url));
             let file_name = format!("{base}.{ext}");
@@ -399,7 +408,7 @@ pub(crate) fn add_media_in(
                     kind: DownloadKind::Media,
                     title,
                     media_options: Some(options),
-                    referrer: None,
+                    referrer: referrer.as_ref().map(url::Url::as_str),
                     queue_id: queues::MAIN_QUEUE,
                     priority: 0,
                     category: category.as_deref(),
@@ -577,8 +586,10 @@ pub(crate) fn propose_media(
     options: &MediaOptions,
     label: Option<&str>,
     size: Option<u64>,
+    referrer: Option<&str>,
 ) -> AppResult<BrowserProposal> {
     let url = validation::validate_url(url)?;
+    let referrer = referrer.filter(|r| !r.trim().is_empty()).map(validation::validate_url).transpose()?;
     args::validate(options)?;
     let ext = expected_extension(options);
     let title = title.map(str::trim).filter(|t| !t.is_empty());
@@ -592,7 +603,7 @@ pub(crate) fn propose_media(
         url: url.to_string(),
         file_name,
         size,
-        referrer: None,
+        referrer: referrer.map(|r| r.to_string()),
         category,
         title: title.map(str::to_owned),
         options: Some(options.clone()),
@@ -614,8 +625,8 @@ pub async fn open_download_window(id: String, app: tauri::AppHandle, state: Stat
     }
     let window = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
         .title(d.title.as_deref().unwrap_or(&d.file_name))
-        .inner_size(540.0, 480.0)
-        .min_inner_size(440.0, 360.0)
+        .inner_size(500.0, 420.0)
+        .min_inner_size(420.0, 320.0)
         .resizable(true)
         .build()
         .map_err(|e| AppError::Internal(format!("couldn't open the download window: {e}")))?;

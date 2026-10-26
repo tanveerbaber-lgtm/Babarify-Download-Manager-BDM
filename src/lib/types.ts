@@ -257,7 +257,7 @@ export interface MediaInfo {
 }
 
 export interface NewMediaRequest {
-  items: { url: string; title?: string }[];
+  items: { url: string; title?: string; referrer?: string }[];
   options: MediaOptions;
   destinationDir?: string;
   start?: boolean;

@@ -15,6 +15,15 @@
   --font-heading: Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
 
+  /* Type scale. Body matches the Windows title bar (Segoe UI 9pt = 12px);
+     only titles and headings are bold. */
+  --text-caption: 11px;
+  --text-body: 12px;
+  --text-title: 13px;
+  --text-heading: 16px;
+  --weight-body: 400;
+  --weight-title: 700;
+
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;

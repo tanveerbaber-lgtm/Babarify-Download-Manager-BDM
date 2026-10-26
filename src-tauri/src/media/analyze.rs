@@ -86,11 +86,24 @@ pub struct PlaylistEntry {
     pub duration: Option<f64>,
 }
 
-/// Runs yt-dlp in metadata-only mode.
-pub async fn analyze(tools: &ToolPaths, url: &str) -> AppResult<MediaInfo> {
+/// Runs yt-dlp in metadata-only mode, with the browser's sign-in cookies if
+/// the user allowed them for this site.
+pub async fn analyze(
+    tools: &ToolPaths,
+    url: &str,
+    referrer: Option<&str>,
+    headers: &[(String, String)],
+    cookies: Option<&Path>,
+) -> AppResult<MediaInfo> {
     let mut cmd = process::command(&tools.yt_dlp);
     cmd.args(["--ignore-config", "--no-plugin-dirs", "--no-warnings", "-J", "--flat-playlist", "--no-playlist"]);
     add_js_runtime(&mut cmd, tools.deno.as_deref());
+    // Streams taken from a page's player often only load with that page's
+    // referrer, or with the exact headers the browser sent.
+    cmd.args(super::args::request_args(referrer, url, headers));
+    if let Some(file) = cookies {
+        cmd.arg("--cookies").arg(file);
+    }
     cmd.args(["--", url]);
 
     let out = tokio::time::timeout(ANALYZE_TIMEOUT, cmd.output())

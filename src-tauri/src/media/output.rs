@@ -78,6 +78,17 @@ pub fn stage_label(postprocessor: &str) -> String {
     }
 }
 
+/// The site wants a signed-in account and BDM had no sign-in for it.
+pub const SIGN_IN_NEEDED: &str =
+    "This site wants you signed in. Allow BDM to use your browser sign-in for this site (from the Download With BDM panel or the BDM extension's options), then try again.";
+/// The site still wanted a sign-in although the browser's cookies were used.
+pub const SIGN_IN_REFUSED: &str =
+    "The site still wants a sign-in. Make sure you're signed in to it in this browser, then try again.";
+
+/// yt-dlp has no extractor for the page and found no video in it.
+pub const UNSUPPORTED_SITE: &str =
+    "This website isn't supported for video downloads. Try adding the link as a regular file download.";
+
 /// Turns yt-dlp's stderr into a short message. URLs are removed because
 /// they can carry signed tokens.
 pub fn friendly_error(stderr: &[String]) -> String {
@@ -91,11 +102,11 @@ pub fn friendly_error(stderr: &[String]) -> String {
     let known = if lower.contains("drm") {
         Some("This media is protected by DRM. BDM doesn't download DRM-protected content.")
     } else if lower.contains("sign in") || lower.contains("login") || lower.contains("log in") || lower.contains("members-only") || lower.contains("cookies") {
-        Some("This media requires a signed-in account. BDM can't download it yet.")
+        Some(SIGN_IN_NEEDED)
     } else if lower.contains("private video") {
         Some("This video is private.")
     } else if lower.contains("unsupported url") {
-        Some("This website isn't supported for video downloads. Try adding the link as a regular file download.")
+        Some(UNSUPPORTED_SITE)
     } else if lower.contains("requested format is not available") {
         Some("The chosen quality isn't available for this video. Pick another option.")
     } else if lower.contains("video unavailable") || lower.contains("not available") || lower.contains("has been removed") {
@@ -186,7 +197,7 @@ mod tests {
     fn maps_common_errors() {
         let e = |s: &str| friendly_error(&[s.to_string()]);
         assert!(e("ERROR: [youtube] x: This video is DRM protected").contains("DRM"));
-        assert!(e("ERROR: [youtube] x: Sign in to confirm your age").contains("signed-in"));
+        assert!(e("ERROR: [youtube] x: Sign in to confirm your age").contains("signed in"));
         assert!(e("ERROR: Unsupported URL: https://example.com/page").contains("isn't supported"));
         assert!(e("ERROR: [youtube] abc: Video unavailable").contains("unavailable"));
         assert!(e("ERROR: [youtube] abc: Requested format is not available").contains("quality"));

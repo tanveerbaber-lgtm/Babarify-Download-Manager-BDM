@@ -109,11 +109,18 @@ async fn run_inner(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         &temp_dir,
         ctx.segments_per_download,
         download.referrer.as_deref(),
+        &ctx.headers.for_url(&download.url),
         &download.url,
     );
     // Limits go before the "--" that ends the options.
     let at = argv.len() - 2;
     argv.splice(at..at, args::limit_args(ctx.limits.effective(), ctx.max_retries));
+    // Deleted when this function returns, after yt-dlp has exited.
+    let cookies = ctx.cookies.file_for(&download.url)?;
+    if let Some(file) = &cookies {
+        let at = argv.len() - 2;
+        argv.splice(at..at, ["--cookies".to_string(), file.path().to_string_lossy().into_owned()]);
+    }
     let mut cmd = process::command(&tools.yt_dlp);
     cmd.args(&argv);
     let mut child = cmd.spawn().map_err(|e| AppError::Io(format!("couldn't start yt-dlp: {e}")))?;

@@ -2,7 +2,22 @@
 // optional media detection. All listeners are registered at the top level so
 // the worker wakes up for them.
 
-import { classifyMedia, downloadMessage, isPanelMessage, normalizeSettings, shouldCapture } from "./rules.js";
+import {
+  classifyMedia,
+  downloadMessage,
+  explainCookieRefusal,
+  headersToKeep,
+  hostOf,
+  isPanelMessage,
+  normalizeSettings,
+  rankDetected,
+  sentCookies,
+  shouldCapture,
+  signInCookies,
+  signInPermissions,
+  signInSiteFor,
+  baseSite,
+} from "./rules.js";
 import { connectionState, sendToBdm } from "./native.js";
 
 const MENU_LINK = "bdm-download-link";
@@ -39,6 +54,58 @@ async function recordError(message) {
 async function recordSuccess() {
   await chrome.storage.session.remove("lastError");
   await flashBadge("✓", "#10B981");
+}
+
+// ------------------------------------------------------- sign-in downloads
+
+/**
+ * Adds the site's cookies to a message when the user allowed sign-in
+ * downloads for that site. Never for private windows.
+ */
+async function withSignIn(msg, incognito = false) {
+  if (incognito || !msg?.url) return msg;
+  const { signInSites } = await getSettings();
+  const site = signInSiteFor(msg.url, signInSites);
+  if (!site || !chrome.cookies) return msg;
+  try {
+    if (!(await chrome.permissions.contains(signInPermissions(site)))) return msg;
+    const cookies = signInCookies(await chrome.cookies.getAll({ url: msg.url }));
+    return cookies.length ? { ...msg, cookies } : msg;
+  } catch {
+    return msg;
+  }
+}
+
+/** Every video detected on any tab, most recent lists first. */
+async function allDetected() {
+  const all = await chrome.storage.session.get(null);
+  return Object.entries(all).filter(([k]) => k.startsWith("media:")).flatMap(([, list]) => list);
+}
+
+/** The detected video a media message is about, if media detection saw it. */
+async function detectedEntry(msg) {
+  if (!["media", "formats", "mediaDownload"].includes(msg?.type)) return null;
+  return (await allDetected()).find((m) => m.url === msg.url) ?? null;
+}
+
+/**
+ * Sends to BDM with the headers the browser sent for a detected video (so
+ * yt-dlp asks for it exactly as the page did) and sign-in cookies where
+ * allowed. A refusal by a server the browser sent cookies to is explained.
+ */
+async function send(msg, incognito = false) {
+  const entry = await detectedEntry(msg);
+  const withHeaders = entry?.headers && Object.keys(entry.headers).length ? { ...msg, headers: entry.headers } : msg;
+  const reply = await sendToBdm(await withSignIn(withHeaders, incognito));
+  const { signInSites } = await getSettings();
+  return explainCookieRefusal(reply, msg.url, entry, signInSites);
+}
+
+/** Opens the options page at the sign-in section, suggesting `host`'s site. */
+function openSignInOptions(host) {
+  const site = baseSite(host);
+  const page = chrome.runtime.getURL("options/options.html");
+  chrome.tabs.create({ url: site ? `${page}#signin=${encodeURIComponent(site)}` : `${page}#signin` });
 }
 
 // -------------------------------------------------------- download capture
@@ -94,7 +161,7 @@ async function capture(item) {
     return; // Already finished or gone; leave it to the browser.
   }
 
-  const reply = await sendToBdm(downloadMessage(item));
+  const reply = await send(downloadMessage(item));
   if (reply.ok) await recordSuccess();
   else await giveBack(item, reply.error || "BDM couldn't take the download.");
 }
@@ -120,13 +187,13 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   let reply;
   if (info.menuItemId === MENU_LINK && info.linkUrl) {
-    reply = await sendToBdm({ type: "download", url: info.linkUrl, referrer: info.pageUrl });
+    reply = await send({ type: "download", url: info.linkUrl, referrer: info.pageUrl }, tab?.incognito);
   } else if (info.menuItemId === MENU_SOURCE && info.srcUrl) {
-    reply = await sendToBdm({ type: "download", url: info.srcUrl, referrer: info.pageUrl });
+    reply = await send({ type: "download", url: info.srcUrl, referrer: info.pageUrl }, tab?.incognito);
   } else if (info.menuItemId === MENU_MEDIA) {
     // A link to a video page, or the page itself; BDM asks which quality.
     const url = info.linkUrl || info.pageUrl;
-    reply = await sendToBdm({ type: "media", url, pageTitle: info.linkUrl ? undefined : tab?.title });
+    reply = await send({ type: "media", url, pageTitle: info.linkUrl ? undefined : tab?.title }, tab?.incognito);
   } else {
     return;
   }
@@ -147,21 +214,47 @@ async function addDetected(tabId, entry) {
   await chrome.action.setBadgeText({ text: String(next.length), tabId }).catch(() => {});
 }
 
+/** Request headers by request id, until the response shows whether it's media. */
+const sentHeaders = new Map();
+const MAX_PENDING_HEADERS = 500;
+
+function onSendHeaders(details) {
+  if (details.tabId < 0) return;
+  if (sentHeaders.size >= MAX_PENDING_HEADERS) sentHeaders.delete(sentHeaders.keys().next().value);
+  sentHeaders.set(details.requestId, { headers: headersToKeep(details.requestHeaders), cookies: sentCookies(details.requestHeaders) });
+}
+
+function forgetRequest(details) {
+  sentHeaders.delete(details.requestId);
+}
+
 function onHeaders(details) {
+  const sent = sentHeaders.get(details.requestId);
+  sentHeaders.delete(details.requestId);
   if (details.tabId < 0 || details.statusCode >= 400) return;
   const header = (name) => details.responseHeaders?.find((h) => h.name.toLowerCase() === name)?.value;
   const media = classifyMedia(details.url, header("content-type"));
   if (!media) return;
   getSettings().then((s) => {
     if (!s.detectMedia) return;
-    addDetected(details.tabId, { url: details.url, ...media, size: Number(header("content-length")) || 0, at: Date.now() });
+    addDetected(details.tabId, {
+      url: details.url,
+      ...media,
+      size: Number(header("content-length")) || 0,
+      at: Date.now(),
+      headers: sent?.headers,
+      sentCookies: sent?.cookies === true,
+    });
   });
 }
 
 function enableMediaDetection() {
-  if (chrome.webRequest && !chrome.webRequest.onHeadersReceived.hasListener(onHeaders)) {
-    chrome.webRequest.onHeadersReceived.addListener(onHeaders, { urls: ["http://*/*", "https://*/*"], types: ["media", "xmlhttprequest", "other"] }, ["responseHeaders"]);
-  }
+  if (!chrome.webRequest || chrome.webRequest.onHeadersReceived.hasListener(onHeaders)) return;
+  const filter = { urls: ["http://*/*", "https://*/*"], types: ["media", "xmlhttprequest", "other"] };
+  // "extraHeaders" makes Referer, Origin and the like visible, as they were sent.
+  chrome.webRequest.onSendHeaders.addListener(onSendHeaders, filter, ["requestHeaders", "extraHeaders"]);
+  chrome.webRequest.onErrorOccurred.addListener(forgetRequest, filter);
+  chrome.webRequest.onHeadersReceived.addListener(onHeaders, filter, ["responseHeaders"]);
 }
 
 // The webRequest API only exists once the user has granted it (optional permission).
@@ -216,12 +309,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false;
   // Page scripts (sender.tab set) may only ask for formats or a media download.
   if (sender.tab) {
+    // The panel's "Use My Browser Sign-In". The site must be the tab's own or
+    // one of the video servers detected on it; a page can't pick any site.
+    if (msg?.type === "allowSignIn" && Object.keys(msg).every((k) => k === "type" || k === "site")) {
+      const tabSite = baseSite(hostOf(sender.tab.url ?? sender.url ?? ""));
+      if (!msg.site || msg.site === tabSite) {
+        openSignInOptions(tabSite);
+        return false;
+      }
+      chrome.storage.session.get(`media:${sender.tab.id}`).then((stored) => {
+        const seen = (stored[`media:${sender.tab.id}`] ?? []).some((m) => baseSite(hostOf(m.url)) === msg.site);
+        openSignInOptions(seen ? msg.site : tabSite);
+      });
+      return false;
+    }
+    // Videos media detection saw on this tab, main video first (addresses
+    // only), and the tab's title for players inside frames.
+    if (msg?.type === "detectedMedia" && Object.keys(msg).length === 1) {
+      chrome.storage.session.get(`media:${sender.tab.id}`).then((stored) => {
+        const list = rankDetected(stored[`media:${sender.tab.id}`] ?? []);
+        sendResponse({ media: list.map(({ url, kind, size }) => ({ url, kind, size })), title: sender.tab.title ?? "" });
+      });
+      return true;
+    }
     if (!isPanelMessage(msg)) return false;
-    sendToBdm(msg).then(sendResponse);
+    send(msg, sender.tab.incognito).then(sendResponse);
     return true;
   }
   if (msg?.type === "send") {
-    sendToBdm(msg.payload).then(async (reply) => {
+    send(msg.payload).then(async (reply) => {
       if (reply.ok) await recordSuccess();
       else await recordError(reply.error || "BDM couldn't take that.");
       sendResponse(reply);

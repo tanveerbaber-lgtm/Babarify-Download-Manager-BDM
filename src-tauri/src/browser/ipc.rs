@@ -175,7 +175,7 @@ mod tests {
         assert_eq!(r, BrowserResponse::running("9.9.9"));
         // Several requests in a row each get their own connection.
         for _ in 0..3 {
-            let r = send_blocking(&name, "secret", BrowserRequest::Download { url: "https://e.com/x".into(), file_name: None, referrer: None, mime: None, size: None }).unwrap();
+            let r = send_blocking(&name, "secret", BrowserRequest::Download { url: "https://e.com/x".into(), file_name: None, referrer: None, mime: None, size: None, cookies: None }).unwrap();
             assert_eq!(r.error.as_deref(), Some("https://e.com/x"));
         }
     }
@@ -186,7 +186,7 @@ mod tests {
         start(&name, "secret").await;
         let r = send_blocking(&name, "guess", BrowserRequest::Ping).unwrap();
         assert!(!r.ok && r.error.as_deref() == Some("Not authorized."));
-        let r = send_blocking(&name, "secret", BrowserRequest::Media { url: "file:///etc/passwd".into(), page_title: None }).unwrap();
+        let r = send_blocking(&name, "secret", BrowserRequest::Media { url: "file:///etc/passwd".into(), page_title: None, headers: None, cookies: None }).unwrap();
         assert!(!r.ok);
     }
 

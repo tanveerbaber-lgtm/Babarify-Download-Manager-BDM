@@ -24,6 +24,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   detectMedia: false,
   /** Show the "Download With BDM" panel on videos (needs optional permissions). */
   videoPanel: false,
+  /** Sites whose sign-in cookies BDM may use (each granted separately). */
+  signInSites: [],
 });
 
 /** Settings from storage, with defaults for anything missing or malformed. */
@@ -36,7 +38,72 @@ export function normalizeSettings(raw) {
     excludedHosts: parseList(s.excludedHosts).map((h) => h.replace(/^\*\./, "")).filter((h) => /^[a-z0-9.-]+$/.test(h)),
     detectMedia: s.detectMedia === true,
     videoPanel: s.videoPanel === true,
+    signInSites: parseList(s.signInSites).map(siteOf).filter((h) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h)),
   };
+}
+
+/** The site a host belongs to for sign-in purposes: "www.youtube.com" → "youtube.com". */
+export function siteOf(host) {
+  return String(host ?? "").trim().toLowerCase().replace(/^\*\./, "").replace(/^(www|m)\./, "");
+}
+
+const SECOND_LEVEL = ["co", "com", "net", "org", "gov", "edu", "ac", "gob", "nic"];
+
+/**
+ * The site a host's cookies usually belong to, for sites BDM suggests:
+ * "player.cdn.example.net" → "example.net", "www.bbc.co.uk" → "bbc.co.uk".
+ * Sites the user types are kept as entered (see siteOf).
+ */
+export function baseSite(host) {
+  const labels = siteOf(host).split(".").filter(Boolean);
+  if (labels.length <= 2 || /^\d+$/.test(labels.at(-1))) return labels.join(".");
+  const keep = labels.at(-1).length === 2 && SECOND_LEVEL.includes(labels.at(-2)) ? 3 : 2;
+  return labels.slice(-keep).join(".");
+}
+
+/** The allowed sign-in site covering `url`, or "". */
+export function signInSiteFor(url, sites) {
+  if (!isHttpUrl(url)) return "";
+  const host = hostOf(url);
+  return sites.find((s) => host === s || host.endsWith(`.${s}`)) ?? "";
+}
+
+/** Permissions needed to read one site's cookies. */
+export function signInPermissions(site) {
+  return { permissions: ["cookies"], origins: [`*://${site}/*`, `*://*.${site}/*`] };
+}
+
+const MAX_COOKIES = 300;
+const MAX_COOKIE_BYTES = 40 * 1024;
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+/**
+ * chrome.cookies results → the fields BDM accepts. Cookies BDM would refuse
+ * (odd characters, too large) are left out rather than failing the request.
+ */
+export function signInCookies(list) {
+  const out = [];
+  let bytes = 0;
+  for (const c of Array.isArray(list) ? list : []) {
+    const name = String(c?.name ?? "");
+    const value = String(c?.value ?? "");
+    if (!name || CONTROL.test(name) || CONTROL.test(value) || /[=; ]/.test(name) || value.includes(";")) continue;
+    if (name.length > 256 || value.length > 8192) continue;
+    bytes += name.length + value.length;
+    if (out.length >= MAX_COOKIES || bytes > MAX_COOKIE_BYTES) break;
+    const cookie = {
+      name,
+      value,
+      domain: String(c.domain ?? ""),
+      path: String(c.path || "/"),
+      secure: c.secure === true,
+      httpOnly: c.httpOnly === true,
+      hostOnly: c.hostOnly === true,
+    };
+    if (!c.session && Number.isFinite(c.expirationDate)) cookie.expires = Math.floor(c.expirationDate);
+    out.push(cookie);
+  }
+  return out;
 }
 
 /** Accepts an array or a comma/space/newline separated string. */
@@ -152,14 +219,85 @@ export function classifyMedia(url, contentType) {
   return { kind: stream ? "stream" : "file", label: stream ? `${ext.toUpperCase()} stream` : ext.toUpperCase() };
 }
 
+const KEPT_HEADERS = ["user-agent", "referer", "origin", "accept", "accept-language"];
+const MAX_KEPT_HEADERS = 32;
+
+/**
+ * The request headers worth repeating when BDM fetches a detected video:
+ * what describes the request, plus the page's own X- headers. Cookies and
+ * Authorization are never taken (sign-in goes through sign-in downloads).
+ */
+export function headersToKeep(requestHeaders) {
+  const out = {};
+  for (const h of Array.isArray(requestHeaders) ? requestHeaders : []) {
+    const name = String(h?.name ?? "");
+    const value = String(h?.value ?? "");
+    const lower = name.toLowerCase();
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(name) || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) continue;
+    if (!KEPT_HEADERS.includes(lower) && !(lower.startsWith("x-") && !lower.startsWith("x-forwarded"))) continue;
+    if (Object.keys(out).length >= MAX_KEPT_HEADERS) break;
+    out[name] = value;
+  }
+  return out;
+}
+
+/** Whether the browser sent cookies with a request (their values are never kept). */
+export function sentCookies(requestHeaders) {
+  return (Array.isArray(requestHeaders) ? requestHeaders : []).some((h) => String(h?.name ?? "").toLowerCase() === "cookie");
+}
+
+/**
+ * When a video's server refused BDM and the browser had sent it cookies,
+ * says which site's sign-in is missing so the panel can offer to allow it.
+ * `entry` is the detected video; `sites` are the allowed sign-in sites.
+ */
+export function explainCookieRefusal(reply, url, entry, sites) {
+  if (!reply || reply.ok || reply.signIn || !entry?.sentCookies || signInSiteFor(url, sites)) return reply;
+  if (!/\b40[13]\b|refused access|forbidden|unauthori[sz]ed/i.test(reply.error ?? "")) return reply;
+  const site = baseSite(hostOf(url));
+  return {
+    ...reply,
+    signIn: true,
+    signInSite: site,
+    error: `This video's server (${site}) wants the cookies your browser sends it. Allow sign-in downloads for ${site}, then try again.`,
+  };
+}
+
+/** Addresses that usually belong to advertising rather than the page's video. */
+const AD_PATTERN = /(^|[./_-])(ads?|adserver|advert\w*|doubleclick|googlesyndication|imasdk|vast|vpaid|preroll|midroll)([./_?-]|$)/i;
+const MASTER_PATTERN = /(master|index|playlist|manifest|main)[^/]*\.(m3u8|mpd)(\?|#|$)/i;
+
+/**
+ * Orders media detected on a page so the page's main video comes first:
+ * ads last, streams before plain files, master playlists before variants
+ * (then in load order), and larger files before smaller ones.
+ */
+export function rankDetected(entries) {
+  const list = (Array.isArray(entries) ? entries : []).filter((m) => m && isHttpUrl(m.url) && !SEGMENT_PATTERN.test(m.url));
+  const score = (m) => [
+    AD_PATTERN.test(m.url) ? 1 : 0,
+    m.kind === "stream" ? 0 : 1,
+    m.kind === "stream" && MASTER_PATTERN.test(m.url) ? 0 : 1,
+  ];
+  return [...list].sort((a, b) => {
+    const [sa, sb] = [score(a), score(b)];
+    for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return sa[i] - sb[i];
+    if (a.kind === "stream") return (a.at ?? 0) - (b.at ?? 0);
+    return (b.size ?? 0) - (a.size ?? 0);
+  });
+}
+
 /** Messages page scripts may send; anything else is ignored. */
 export function isPanelMessage(msg) {
   if (!msg || typeof msg !== "object" || !isHttpUrl(msg.url)) return false;
-  if (msg.type === "formats") return Object.keys(msg).every((k) => k === "type" || k === "url");
+  // A stream taken from the page's player names the page it plays on.
+  const referrerOk = msg.referrer === undefined || isHttpUrl(msg.referrer);
+  if (msg.type === "formats") return referrerOk && Object.keys(msg).every((k) => ["type", "url", "referrer"].includes(k));
   if (msg.type === "mediaDownload") {
-    const okKeys = Object.keys(msg).every((k) => ["type", "url", "title", "options", "label", "size"].includes(k));
+    const okKeys = Object.keys(msg).every((k) => ["type", "url", "title", "options", "label", "size", "referrer"].includes(k));
     return (
       okKeys &&
+      referrerOk &&
       typeof msg.options === "object" &&
       msg.options !== null &&
       (msg.title === undefined || typeof msg.title === "string") &&

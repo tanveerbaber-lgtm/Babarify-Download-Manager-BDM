@@ -37,7 +37,8 @@
   ],
   "optional_permissions": [
     "webRequest",
-    "scripting"
+    "scripting",
+    "cookies"
   ],
   "optional_host_permissions": [
     "http://*/*",

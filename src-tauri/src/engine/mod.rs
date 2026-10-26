@@ -33,6 +33,8 @@ use crate::db::{Database, downloads, now_ms, queues, settings};
 use crate::error::{AppError, AppResult};
 use crate::media::tools::ToolManager;
 use crate::models::{Download, DownloadStatus, Settings};
+use crate::cookies::CookieJar;
+use crate::request_headers::HeaderStore;
 use crate::net_guard::NetGuard;
 use error::EngineError;
 use events::EventSink;
@@ -144,6 +146,8 @@ struct Inner {
     tools: Arc<ToolManager>,
     global_limit: Arc<RateLimiter>,
     guard: Arc<NetGuard>,
+    cookies: Arc<CookieJar>,
+    headers: Arc<HeaderStore>,
 }
 
 #[derive(Clone)]
@@ -173,6 +177,8 @@ impl Engine {
                 tools,
                 global_limit: Arc::new(RateLimiter::new(0)),
                 guard,
+                cookies: Arc::new(CookieJar::new()),
+                headers: Arc::new(HeaderStore::new()),
                 sched: Mutex::new(Scheduler {
                     active: HashMap::new(),
                     max_concurrent: 1,
@@ -380,6 +386,16 @@ impl Engine {
         &self.inner.guard
     }
 
+    /// Sign-in cookies received from the browser this session.
+    pub fn cookies(&self) -> &Arc<CookieJar> {
+        &self.inner.cookies
+    }
+
+    /// Request headers the browser sent for videos pages played.
+    pub fn request_headers(&self) -> &Arc<HeaderStore> {
+        &self.inner.headers
+    }
+
     /// Re-runs selection after a priority or order change.
     pub fn reschedule(&self) -> AppResult<()> {
         self.schedule()
@@ -479,6 +495,8 @@ impl Engine {
                 cancel: active.token.clone(),
                 tools: self.inner.tools.clone(),
                 guard: self.inner.guard.clone(),
+                cookies: self.inner.cookies.clone(),
+                headers: self.inner.headers.clone(),
             };
             let reason = active.reason.clone();
             sched.active.insert(id.clone(), active);

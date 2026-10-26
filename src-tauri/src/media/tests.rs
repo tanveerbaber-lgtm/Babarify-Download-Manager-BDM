@@ -211,6 +211,11 @@ impl MediaHarness {
     }
 
     fn add(&self, path: &str, options: MediaOptions) -> String {
+        self.add_from_page(path, options, None)
+    }
+
+    /// Adds a media download that names the page it was found on.
+    fn add_from_page(&self, path: &str, options: MediaOptions, referrer: Option<&str>) -> String {
         let id = downloads::insert(
             &self.db.lock().unwrap(),
             &downloads::InsertDownload {
@@ -221,7 +226,7 @@ impl MediaHarness {
                 kind: DownloadKind::Media,
                 title: None,
                 media_options: Some(&options),
-                referrer: None,
+                referrer,
                 queue_id: "main",
                 priority: 0,
                 category: None,
@@ -354,10 +359,82 @@ async fn analyzes_a_direct_media_url() {
     let Some(h) = MediaHarness::new().await else { return };
     h.server.state.add("a.mp4", FileSpec::new(make_clip(&h.real, 2, "160x120")));
     let tools = h.engine_tools();
-    let info = analyze::analyze(&tools, &h.server.url("/files/a.mp4")).await.unwrap();
+    let info = analyze::analyze(&tools, &h.server.url("/files/a.mp4"), None, &[], None).await.unwrap();
     assert_eq!(info.kind, "video");
     assert!(!info.formats.is_empty());
     assert!(!info.drm_protected);
+}
+
+/// Cuts a test clip into an HLS stream: `index.m3u8` plus `seg*.ts` files.
+fn make_hls(real: &Real, seconds: u32) -> Vec<(String, Vec<u8>)> {
+    let dir = tempfile::tempdir().unwrap();
+    let clip = dir.path().join("clip.mp4");
+    std::fs::write(&clip, make_clip(real, seconds, "320x240")).unwrap();
+    let status = std::process::Command::new(&real.ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+        .arg(&clip)
+        .args(["-c", "copy", "-f", "hls", "-hls_time", "1", "-hls_playlist_type", "vod", "-hls_segment_filename"])
+        .arg(dir.path().join("seg%d.ts"))
+        .arg(dir.path().join("index.m3u8"))
+        .status()
+        .unwrap();
+    assert!(status.success());
+    std::fs::read_dir(dir.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n != "clip.mp4")
+        .map(|n| {
+            let data = std::fs::read(dir.path().join(&n)).unwrap();
+            (n, data)
+        })
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn reads_and_downloads_a_player_stream_with_the_page_as_referrer() {
+    let Some(h) = MediaHarness::new().await else { return };
+    for (name, data) in make_hls(&h.real, 3) {
+        h.server.state.add(&name, FileSpec::new(data));
+    }
+    let tools = h.engine_tools();
+    let stream = h.server.url("/guarded/index.m3u8");
+    let page = h.server.url("/page/watch");
+
+    // Like many CDNs, the test server refuses the stream without its page.
+    assert!(analyze::analyze(&tools, &stream, None, &[], None).await.is_err());
+    let info = analyze::analyze(&tools, &stream, Some(&page), &[], None).await.unwrap();
+    let choices = super::choices::media_choices(&info).unwrap();
+    assert!(choices.choices.iter().any(|c| c.kind == "video"), "{:?}", choices.choices);
+
+    let opts = MediaOptions::Video { max_height: None, container: Container::Mp4 };
+    let id = h.add_from_page("/guarded/index.m3u8", opts, Some(&page));
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    let s = streams(&h.real, Path::new(&d.saved_path.unwrap()));
+    assert!(s.contains(&"video:h264".to_string()), "{s:?}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn repeats_the_browsers_request_headers_for_a_detected_stream() {
+    let Some(h) = MediaHarness::new().await else { return };
+    for (name, data) in make_hls(&h.real, 3) {
+        h.server.state.add(&name, FileSpec::new(data));
+    }
+    let tools = h.engine_tools();
+    let stream = h.server.url("/tokened/index.m3u8");
+    let headers = vec![("X-Stream-Token".to_string(), "ok".to_string()), ("Origin".to_string(), "http://page.test".to_string())];
+
+    // The server wants the header the page's player added, on the playlist and every segment.
+    assert!(analyze::analyze(&tools, &stream, None, &[], None).await.is_err());
+    let info = analyze::analyze(&tools, &stream, None, &headers, None).await.unwrap();
+    assert!(!info.formats.is_empty());
+
+    h.engine.request_headers().remember(&stream, headers);
+    let id = h.add("/tokened/index.m3u8", MediaOptions::Video { max_height: None, container: Container::Mp4 });
+    let d = h.wait_done(&id).await;
+    assert_eq!(d.status, DownloadStatus::Completed, "{:?}", d.error_message);
+    assert!(streams(&h.real, Path::new(&d.saved_path.unwrap())).contains(&"video:h264".to_string()));
 }
 
 impl MediaHarness {

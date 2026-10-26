@@ -433,3 +433,81 @@ From the BDM vs IDM audit (https://claude.ai/artifact/Q68KwaAAQN9XTfei7tEsz5):
 - The extension zip is unchanged (no extension changes since `c76d542`). `SHA256SUMS.txt` replaced.
 - Release notes now say **New Download** instead of "Download File Info" and list Mark of the Web and the navy headers.
 - Tag `v1.0.0` moved from `c76d542` to `34fb97b` and force-pushed.
+
+## Sign-in downloads (2026-10-26)
+
+Fixes "This media requires a signed-in account" (for example YouTube's "Sign in to confirm you're not a bot").
+- **Extension:** new optional `cookies` permission, requested per site (`*://site/*`, `*://*.site/*`) from the new
+  "Sign-in downloads" section of the options. For allowed sites only, and never from private windows, requests to BDM
+  (captured downloads, right-click menu, video panel) carry the cookies `chrome.cookies.getAll({url})` returns for that
+  URL. When BDM answers that a sign-in is needed, the video panel shows **Use My Browser Sign-In**, which opens the
+  options with the site filled in. Removing a site withdraws its permission (and `cookies` itself once none are left).
+- **BDM:** the protocol accepts an optional `cookies` list (unknown fields still refused); each cookie must belong to the
+  request's host and contain no control characters, at most 300 cookies / 48 KB. Cookies live in an in-memory jar
+  (never the database) for 12 hours. yt-dlp (analysis and downloads) gets `--cookies` with a temporary Netscape file
+  that is deleted when it exits; file downloads send a `Cookie` header following host, path and secure rules, which
+  reqwest drops on redirects to another host. If a sign-in is still refused with cookies, BDM says to sign in to the
+  site in the browser.
+- **Checks:** 152 Rust tests (7 new: validation, jar matching and replacement, expiry, Netscape file and deletion,
+  protocol, panel hint, and an engine download that sends the cookie on every request), 11 extension tests (2 new),
+  Clippy and TypeScript clean. The real yt-dlp sent HttpOnly and session cookies from BDM's file format to their host
+  and not another site's cookie. Not yet checked in your Chrome with a real signed-in site.
+- PRIVACY.md, LIMITATIONS.md and the app's Browser page describe the feature.
+
+## Stream capture fallback in the video panel (2026-10-26)
+
+When yt-dlp has no extractor for a page and finds no video in it, the panel no longer stops at "This website isn't
+supported".
+- **BDM:** replies to `formats` carry `unsupported: true` for that case. `formats` and `mediaDownload` accept an optional
+  `referrer` (validated); analysis passes it to yt-dlp as `--referer` (browser referrer policy applied) and media
+  downloads store it, so yt-dlp sends it while downloading. The New Download dialog keeps it when you confirm.
+- **Panel:** on `unsupported` it collects the playing video's sources: `currentSrc`/`src`/`<source>` when they're real
+  addresses (not `blob:`), then `.m3u8`/`.mpd` streams in load order (master playlist first) and video files the page
+  loaded, read from the page's resource timing (no new permission; buffer raised to 1,000 entries). It asks BDM about
+  up to 4 in turn, with the page as referrer; the first that works is offered under "From This Page's Player", titled
+  with the page's title. A player using encrypted media (`mediaKeys`) is refused as DRM before anything is sent.
+- **Checks:** 154 Rust tests (2 new). The new media test uses the real yt-dlp and FFmpeg: an HLS stream served only
+  with a `Referer` fails without one, is analysed with the page as referrer, and downloads to an MP4 with H.264 video.
+  11 extension tests (panel referrer rules added). In Chrome with a stubbed BDM, a page playing a `blob:` source that
+  had loaded `master.m3u8`, a `.ts` segment and an ad file: the panel asked for the page, then for `master.m3u8` with
+  the page as referrer, and showed its choices. Clippy and TypeScript clean. Not yet tried in your Chrome.
+
+## Browser request headers for detected videos, main video before ads (2026-10-26)
+
+How IDM gets videos from sites it doesn't know: it repeats the browser's own request. BDM now does the same when
+media detection is on.
+- **Extension:** media detection also listens to `webRequest.onSendHeaders` (with `extraHeaders`, so Referer and
+  Origin are visible) and keeps, per request, only User-Agent, Referer, Origin, Accept, Accept-Language and the page's
+  `X-` headers (not `X-Forwarded-*`), never Cookie or Authorization. They're stored with the detected video in the
+  extension's session storage and attached when that video is sent to BDM (panel, popup). The panel asks the
+  background for the tab's detected videos (addresses only), ranked: ad hosts last, streams before files, master
+  playlists before variants, then load order; files by size.
+- **Panel:** tries the player's own address, then detected videos, then what the page loaded (up to 5). A result
+  much shorter than the video being watched (under 60% of a video over a minute) is kept only as a last resort.
+- **BDM:** `media`, `formats` and `mediaDownload` accept `headers`; names and values are validated (no control
+  characters, at most 32) and filtered to the same allowlist, then kept in memory by video address for 12 hours.
+  yt-dlp gets them as `--add-header` for analysis and downloads; a captured Referer replaces the guessed one.
+- **Checks:** 160 Rust tests (5 new). Real yt-dlp and FFmpeg: an HLS stream that the server serves only with an
+  `X-Stream-Token` header fails without it, is analysed with it, and BDM's engine downloads it (the header goes with
+  every segment). 13 extension tests (header filtering, ranking). In Chrome with a stubbed BDM, a 15 s ad stream
+  ranked first was skipped for the 90 s main stream. Clippy and TypeScript clean. Header capture inside a real
+  Chrome with the permission granted hasn't been tried yet.
+
+## More player setups in the video panel (2026-10-26)
+
+Local test pages copying common player setups, each checked in Chrome with a stubbed BDM:
+- **Players built as web components** (the `<video>` inside an open shadow root): the panel never appeared, because
+  `querySelectorAll("video")` can't see into shadow roots. It now also searches open shadow roots, only on pages
+  without a plain `<video>`. Test: a `<fancy-player>` element; the panel appeared, fell back to the stream and listed
+  its choices.
+- **Players embedded from another site** (a cross-origin frame): the panel already ran in the frame, but titled the
+  download with the frame's title (often "player"). The background now returns the tab's title with the detected
+  media, and the panel uses it inside frames. Test: player on `localhost` inside a `127.0.0.1` page; the menu showed
+  the page's title.
+- **Servers that want the browser's cookies:** media detection notes whether the browser sent cookies with a video's
+  request (never their values). If BDM is then refused (HTTP 401/403) and that server's site isn't allowed for
+  sign-in downloads, the panel says which site and offers "Use My Browser Sign-In" for it, using its base domain
+  (`player.cdn.example.net` → `example.net`, `bbc.co.uk` kept whole). The background only opens the options for the
+  tab's own site or a server media detection saw on that tab. Test: the panel showed the message and the button sent
+  `allowSignIn` for `example.net`.
+- 14 extension tests (cookie-refusal and base-site rules added). BDM itself is unchanged this round.

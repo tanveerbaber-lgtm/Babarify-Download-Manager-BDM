@@ -41,7 +41,7 @@
         <label class="field">
           <span>Never capture from these sites</span>
           <textarea id="excluded" rows="3" spellcheck="false" placeholder="example.com"></textarea>
-          <small>One per line; subdomains are included. Useful for sites that need you to be signed in, because BDM never receives your browser cookies.</small>
+          <small>One per line; subdomains are included. These downloads stay in the browser.</small>
         </label>
       </section>
 
@@ -50,7 +50,7 @@
         <label class="row">
           <span>
             <strong>Find video and audio on pages</strong>
-            <small>Lists media streams in the popup. Needs permission to see which files pages load; nothing is sent anywhere until you choose a file.</small>
+            <small>Lists media streams in the popup and helps the video panel on sites BDM doesn't know: it notes how the browser asked for each video (address, referrer, origin, browser name and the page's own X- headers, never cookies or passwords) so BDM can ask the same way. Needs permission to see which files pages load; nothing is sent anywhere until you choose a video.</small>
           </span>
           <input id="detect" type="checkbox" class="switch" />
         </label>
@@ -65,6 +65,18 @@
           </span>
           <input id="panel" type="checkbox" class="switch" />
         </label>
+      </section>
+
+      <section id="signin-section">
+        <h2>Sign-in downloads</h2>
+        <p class="hint">Some sites only let signed-in people download (members-only videos, course platforms, YouTube's "confirm you're not a bot"). For the sites you add here, the extension gives BDM that site's cookies with each request, so BDM is signed in the way this browser is. Only those sites, never private windows. BDM keeps them in memory only and forgets them when it closes.</p>
+        <p id="signin-suggest" class="suggest" hidden></p>
+        <div class="signin-add">
+          <input id="signin-site" type="text" placeholder="youtube.com" spellcheck="false" autocomplete="off" />
+          <button id="signin-allow" class="button primary" type="button">Allow site</button>
+        </div>
+        <ul id="signin-list" class="signin-list"></ul>
+        <small id="signin-empty">No sites yet.</small>
       </section>
 
       <div class="actions">

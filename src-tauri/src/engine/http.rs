@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::header::{
-    ACCEPT_ENCODING, CONTENT_LENGTH, CONTENT_RANGE, ETAG, HeaderMap, LAST_MODIFIED, RANGE, REFERER,
+    ACCEPT_ENCODING, CONTENT_LENGTH, COOKIE, CONTENT_RANGE, ETAG, HeaderMap, LAST_MODIFIED, RANGE, REFERER,
     RETRY_AFTER,
 };
 use reqwest::{Client, Response, StatusCode, redirect};
@@ -61,13 +61,15 @@ pub struct RemoteFile {
     pub last_modified: Option<String>,
     /// Sent as `Referer` on every request for this file.
     pub referrer: Option<String>,
+    /// The browser's sign-in cookies for `final_url`'s host, if the user allowed them.
+    pub cookie: Option<String>,
 }
 
 impl RemoteFile {
     /// A GET for this file, with the referrer if there is one.
     pub fn get(&self, client: &Client) -> reqwest::RequestBuilder {
         let referrer = referrer_for(self.referrer.as_deref(), &self.final_url);
-        with_referrer(client.get(&self.final_url), referrer.as_deref())
+        with_cookie(with_referrer(client.get(&self.final_url), referrer.as_deref()), self.cookie.as_deref())
     }
 
     /// Validator for `If-Range`: a strong ETag, else Last-Modified.
@@ -81,9 +83,11 @@ impl RemoteFile {
 
 /// Asks for the first byte only. A `206` reveals range support and the full
 /// size in one round trip; a `200` means ranges are not supported.
-pub async fn probe(client: &Client, url: &str, referrer: Option<&str>) -> EngineResult<RemoteFile> {
+///
+/// `cookie` is sent to `url`'s host only: the client drops it on a redirect to another host.
+pub async fn probe(client: &Client, url: &str, referrer: Option<&str>, cookie: Option<&str>) -> EngineResult<RemoteFile> {
     let sent = referrer_for(referrer, url);
-    let resp = with_referrer(client.get(url), sent.as_deref())
+    let resp = with_cookie(with_referrer(client.get(url), sent.as_deref()), cookie)
         .header(RANGE, "bytes=0-0")
         .send()
         .await
@@ -116,7 +120,7 @@ pub async fn probe(client: &Client, url: &str, referrer: Option<&str>) -> Engine
         other => return Err(http_error(other, &headers)),
     };
 
-    Ok(RemoteFile { final_url, total_bytes, resumable, etag, last_modified, referrer: referrer.map(str::to_owned) })
+    Ok(RemoteFile { final_url, total_bytes, resumable, etag, last_modified, referrer: referrer.map(str::to_owned), cookie: None })
 }
 
 /// The `Referer` a browser would send (its default "strict-origin-when-cross-origin"
@@ -140,6 +144,13 @@ pub fn referrer_for(referrer: Option<&str>, target: &str) -> Option<String> {
 fn with_referrer(req: reqwest::RequestBuilder, referrer: Option<&str>) -> reqwest::RequestBuilder {
     match referrer {
         Some(r) if !r.is_empty() => req.header(REFERER, r),
+        _ => req,
+    }
+}
+
+fn with_cookie(req: reqwest::RequestBuilder, cookie: Option<&str>) -> reqwest::RequestBuilder {
+    match cookie {
+        Some(c) if !c.is_empty() => req.header(COOKIE, c),
         _ => req,
     }
 }
@@ -215,6 +226,7 @@ mod tests {
             etag: Some("\"abc\"".into()),
             last_modified: Some("Tue, 01 Oct 2026 00:00:00 GMT".into()),
             referrer: None,
+            cookie: None,
         };
         assert_eq!(r.if_range(), Some("\"abc\""));
         r.etag = Some("W/\"abc\"".into());

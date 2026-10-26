@@ -119,3 +119,12 @@ input[type="number"] {
   border-radius: 7px;
   font-size: 12.5px;
 }
+
+/* Sign-in downloads */
+.hint { margin: 0 0 10px; color: var(--gray); font-size: 12.5px; line-height: 1.5; }
+.suggest { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--blue) 14%, var(--bg)); color: var(--text); font-size: 12.5px; font-weight: 700; }
+.signin-add { display: flex; gap: 8px; }
+.signin-add input { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--light-gray); border-radius: 7px; background: var(--bg); color: var(--text); }
+.signin-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.signin-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--light-gray); background: var(--surface); border-radius: 8px; }
+.signin-list li span { font-weight: 700; overflow-wrap: anywhere; }

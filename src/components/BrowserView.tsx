@@ -110,8 +110,8 @@ export function BrowserView({ settings, onUpdate }: BrowserViewProps) {
           />
         </div>
         <p className="hint">
-          Choose which downloads BDM takes over in the extension's options. Downloads that need you to be signed in may still
-          fail in BDM, because the browser's cookies are never shared.
+          Choose which downloads BDM takes over in the extension's options. For downloads that need you to be signed in,
+          allow the site under "Sign-in downloads" there, and the extension shares that site's sign-in with BDM.
         </p>
       </section>
     </div>
