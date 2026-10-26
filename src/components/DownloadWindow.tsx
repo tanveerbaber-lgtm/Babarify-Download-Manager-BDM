@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CheckCircle2, ChevronDown, ChevronUp, Copy, FolderOpen, Gauge, Pause, Play, Square, X } from "lucide-react";
 import { api, EVENTS } from "../lib/api";
 import { useSettings } from "../hooks/useSettings";
+import { LedMeter } from "./LedMeter";
 import { formatBytes, formatEta, formatSpeed, progressPercent, STATUS_LABELS } from "../lib/format";
 import { canPause, canResume } from "../lib/actions";
 import type { AppError, Download, Progress, WhenDone } from "../lib/types";
@@ -182,6 +183,7 @@ export function DownloadWindow({ id }: { id: string }) {
       </div>
 
       <section className="dlw-panel">
+        {tab === "status" && <LedMeter speed={live?.speed} running={status === "downloading"} variant="panel" />}
         {tab === "status" && (
           <dl className="dlw-grid">
             <dt>Address</dt>

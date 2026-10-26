@@ -3163,3 +3163,115 @@ body,
   font: inherit;
   font-size: var(--text-body);
 }
+
+/* ---------- LED speed meters (each download) ----------
+   Lit bars run from Babarify blue to green; unlit bars are light gray in the
+   list and faint slate on the download window's navy panel. */
+
+.leds {
+  display: grid;
+  gap: 2px;
+}
+
+.leds .led {
+  border-radius: 2px;
+  background: var(--track);
+  transition: background 0.2s;
+}
+
+.leds .led.peak {
+  background: #64748b;
+}
+
+/* In the list: compact bars in front of the speed. */
+.led-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.led-row .leds {
+  width: 56px;
+  height: 9px;
+  flex: none;
+}
+
+.led-row-value {
+  min-width: 58px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-speed { width: 136px; }
+
+/* In the download window: the navy panel with a digital readout. */
+.led-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.led-panel .leds {
+  height: 12px;
+}
+
+.led-panel .leds .led {
+  background: rgba(100, 116, 139, 0.28);
+}
+
+.led-panel .leds .led.peak {
+  background: #64748b;
+}
+
+.led-panel-top {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.led-panel-label {
+  font-size: var(--text-caption);
+  color: #e2e8f0;
+}
+
+.led-panel-value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #10b981;
+  font-variant-numeric: tabular-nums;
+}
+
+.led-panel-value.idle {
+  color: #64748b;
+}
+
+.led-panel-unit {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-title);
+  color: #2563eb;
+}
+
+.led-panel-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leds .led {
+    transition: none;
+  }
+}

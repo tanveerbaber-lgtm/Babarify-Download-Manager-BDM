@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — Final check in progress: automated checks pass; a real server's connection limit (HTTP 429) failed a download, fixed (BDM carries on with fewer connections); STORE_LISTING.md written. Browser checks wait for Claude in Chrome. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-10-26 — LED speed meters on each download (list and download window). Final check in progress: automated checks pass; a real server's connection limit (HTTP 429) failed a download, fixed (BDM carries on with fewer connections); STORE_LISTING.md written. Browser checks wait for Claude in Chrome. Open from M7: Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -17,9 +17,9 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
-| After 1.0 — Power features | 0 | 2 | 2 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
+| After 1.0 — Power features | 1 | 2 | 3 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
 | M8 — BDM 1.1 Everyday power | 6 | 1 | 7 | In progress (Windows startup to confirm) |
-| **Total** | **72** | **10** | **82** | |
+| **Total** | **73** | **10** | **83** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -261,6 +261,10 @@ Features from the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), a
   - [x] Servers that want the browser's cookies: the panel names that server's site and offers sign-in for it
         (the site must be the tab's or one media detection saw on that tab)
   - [x] Chrome tests (stubbed BDM) for all three: shadow-DOM player, cross-origin frame, cookie refusal → sign-in
+- [x] LED speed meters on each download (Babarify blue to green).
+  - [x] The list: 12 bars in front of each download's speed; unlit gray when it isn't downloading
+  - [x] The download window: navy panel with a digital readout, 24 bars, the peak marked, and a round scale (1, 2, 5, 10… MB/s)
+  - [x] Checked in the frontend preview at 1180 px and 900 px wide and in the download window
 
 ## M8 — BDM 1.1 Everyday power
 Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), one feature at a time.

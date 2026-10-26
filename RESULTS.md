@@ -718,3 +718,14 @@ built for Windows. The code has never been run through `rustfmt` (no config); le
 
 **Store listing guide:** STORE_LISTING.md (Chrome Web Store and Edge Add-ons: accounts, ZIP, images, privacy
 answers, permission justifications, and the store extension IDs BDM must allow before publishing).
+
+## LED speed meters on each download (2026-10-26)
+
+- Each row in the list has 12 LED bars in front of its speed, lit from Babarify blue to green in proportion to the
+  speed; a download that isn't running shows unlit bars and "—".
+- The download window's Progress tab opens with a navy panel: the speed in green digits (KB/s below 1 MB/s), 24 bars,
+  the peak bar marked in slate, and a scale that rounds up to 1, 2, 5, 10, 20… MB/s from the peak.
+- The scale follows each download's own peak, so a slow download still fills its bars.
+- Screen readers get each meter as a "meter" with its value; bars don't animate with reduced motion.
+- Checked: TypeScript, the frontend preview at 1180 px and 900 px (two downloads running, 7.9 MB/s and 715 KB/s), and
+  the download window at 500 px. Not yet seen in the installed app.

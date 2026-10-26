@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent, type MouseEvent } from "react";
 import { ArrowDown, ArrowUp, FileArchive, FileAudio, FileImage, FileText, FileVideo, File, Gauge, type LucideIcon } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
+import { LedMeter } from "./LedMeter";
 import { formatBytes, formatDate, formatEta, formatSpeed, progressPercent } from "../lib/format";
 import type { Download, Progress, Queue } from "../lib/types";
 
@@ -171,7 +172,9 @@ export function DownloadTable({ downloads, progress, selected, onSelectionChange
                 <td>
                   <StatusBadge status={d.status} scan={d.scanResult} />
                 </td>
-                <td className="num">{formatSpeed(live?.speed)}</td>
+                <td className="num">
+                  <LedMeter speed={live?.speed} running={d.status === "downloading"} variant="row" />
+                </td>
                 <td className="num">{formatEta(live?.etaSeconds)}</td>
                 <td className="muted">{formatDate(d.createdAt)}</td>
               </tr>
