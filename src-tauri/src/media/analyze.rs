@@ -88,6 +88,7 @@ pub struct PlaylistEntry {
 
 /// Runs yt-dlp in metadata-only mode, with the browser's sign-in cookies if
 /// the user allowed them for this site.
+#[cfg(test)]
 pub async fn analyze(
     tools: &ToolPaths,
     url: &str,
@@ -95,6 +96,18 @@ pub async fn analyze(
     headers: &[(String, String)],
     cookies: Option<&Path>,
 ) -> AppResult<MediaInfo> {
+    analyze_raw(tools, url, referrer, headers, cookies).await.map(|(info, _)| info)
+}
+
+/// [`analyze`], also returning yt-dlp's JSON so a download can start from it
+/// (see [`super::info_cache`]).
+pub async fn analyze_raw(
+    tools: &ToolPaths,
+    url: &str,
+    referrer: Option<&str>,
+    headers: &[(String, String)],
+    cookies: Option<&Path>,
+) -> AppResult<(MediaInfo, Vec<u8>)> {
     let mut cmd = process::command(&tools.yt_dlp);
     cmd.args(["--ignore-config", "--no-plugin-dirs", "--no-warnings", "-J", "--flat-playlist", "--no-playlist"]);
     add_js_runtime(&mut cmd, tools.deno.as_deref());
@@ -117,7 +130,7 @@ pub async fn analyze(
     }
     let json: Value = serde_json::from_slice(&out.stdout)
         .map_err(|_| AppError::Validation("yt-dlp returned data BDM couldn't read.".into()))?;
-    parse(&json, url)
+    parse(&json, url).map(|info| (info, out.stdout))
 }
 
 pub fn add_js_runtime(cmd: &mut tokio::process::Command, deno: Option<&Path>) {

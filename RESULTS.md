@@ -780,3 +780,31 @@ answers, permission justifications, and the store extension IDs BDM must allow b
   - Extension unit tests: 14 pass.
 - The extension already in your Chrome needs one last manual reload to get this; later updates refresh tabs by
   themselves. BDM app updates don't need it: the extension talks to BDM fresh for each request.
+
+## Faster video downloads and format lists (2026-10-27)
+
+Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 single-file and 2026.10.26 folder build):
+
+| Step | Before | Now |
+| --- | --- | --- |
+| yt-dlp startup | 1.7 s (single-file exe unpacks itself every run) | 0.7 s (folder build) |
+| Format list (panel or Video Downloader) | about 8 s | about 5 s |
+| Click a quality → first video bytes | about 8–9 s (the site was asked again) | about 1 s (starts from the format check) |
+
+- **Download starts from the format check.** The JSON from the format list is kept in memory for 20 minutes
+  (16 videos at most) and used once: the download runs `yt-dlp --load-info-json` instead of asking the site again.
+  If that run fails (e.g. the stream addresses expired), BDM retries at once the normal way. The JSON can hold
+  sign-in cookies, so it only goes to disk as a temporary file deleted when yt-dlp exits. Playlists, live streams and
+  DRM pages aren't kept.
+- **yt-dlp folder build.** BDM now installs `yt-dlp_win.zip`, one folder per version
+  (`tools/yt-dlp/<release>-<sha>/`), so an update never has to replace a running copy; older versions and the
+  earlier single-file `yt-dlp.exe` are removed when not in use. Unpacking uses each entry's enclosed path and caps
+  the size, so an archive can't write outside its folder. Existing installs get it with the next yt-dlp update
+  (automatic within a day, or Settings → Media tools → Update).
+- Checked for real: yt-dlp took the saved check and picked the same formats; a `--test` download from it worked
+  (no 403), first bytes at 2.15 s with the single-file exe. The folder build's SHA-256 matched yt-dlp's
+  SHA2-256SUMS.
+- Tests: InfoCache (used once, oldest dropped, temp file deleted), folder install and update, the move from the
+  single-file build, and a zip with `../` entries refused. 194 Rust tests pass; Clippy clean.
+- Remaining time on YouTube is the site itself: page, player script and its JS challenge (about 4 s), which every
+  downloader has to do once per video.

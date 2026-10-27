@@ -325,7 +325,16 @@ pub async fn analyze_media(url: String, state: State<'_, AppState>) -> AppResult
     state.engine.net_guard().check_url(&url).await.map_err(|b| AppError::Validation(b.to_string()))?;
     let cookies = state.engine.cookies().file_for(url.as_str())?;
     let headers = state.engine.request_headers().for_url(url.as_str());
-    analyze::analyze(&tools, url.as_str(), None, &headers, cookies.as_ref().map(|c| c.path())).await
+    let (info, json) = analyze::analyze_raw(&tools, url.as_str(), None, &headers, cookies.as_ref().map(|c| c.path())).await?;
+    remember_check(&state, url.as_str(), &info, json);
+    Ok(info)
+}
+
+/// Keeps a single video's format check so its download can start from it.
+pub(crate) fn remember_check(state: &AppState, url: &str, info: &MediaInfo, json: Vec<u8>) {
+    if info.kind == "video" && !info.is_live && !info.drm_protected {
+        state.engine.media_info().remember(url, json);
+    }
 }
 
 #[derive(Debug, Deserialize)]

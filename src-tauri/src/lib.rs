@@ -179,9 +179,12 @@ async fn handle_browser_request(app: AppHandle, mut request: BrowserRequest) -> 
                 Err(e) => return BrowserResponse::error(e.to_string()),
             };
             let headers = state.engine.request_headers().for_url(&url);
-            match media::analyze::analyze(&tools, &url, referrer.as_deref(), &headers, cookies.as_ref().map(|c| c.path())).await {
-                Ok(info) => match media::choices::media_choices(&info) {
-                    Ok(choices) => BrowserResponse::with_media(choices),
+            match media::analyze::analyze_raw(&tools, &url, referrer.as_deref(), &headers, cookies.as_ref().map(|c| c.path())).await {
+                Ok((info, json)) => match media::choices::media_choices(&info) {
+                    Ok(choices) => {
+                        commands::remember_check(&state, &url, &info, json);
+                        BrowserResponse::with_media(choices)
+                    }
                     Err(message) => BrowserResponse::error(message),
                 },
                 Err(AppError::Validation(message)) => BrowserResponse::media_error(message, had_cookies),

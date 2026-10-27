@@ -68,8 +68,19 @@ fn publish(server: &TestServer, repo: &str, tag: &str, asset_name: &str, data: V
     server.state.set_json(&format!("repos/{repo}/releases/latest"), body);
 }
 
+/// yt-dlp's folder build: the program and its support files.
+fn ytdlp_zip(exe: &[u8]) -> Vec<u8> {
+    zip_of(&[("yt-dlp.exe", exe), ("_internal/python313.dll", b"PY"), ("_internal/yt_dlp/__init__.pyc", b"YT")])
+}
+
+fn publish_ytdlp(server: &TestServer, tag: &str, exe: &[u8]) {
+    let z = ytdlp_zip(exe);
+    let digest = format!("sha256:{}", sha(&z));
+    publish(server, "yt-dlp/yt-dlp", tag, "yt-dlp_win.zip", z, Some(digest));
+}
+
 fn publish_all(server: &TestServer, ytdlp: &[u8]) {
-    publish(server, "yt-dlp/yt-dlp", "2026.10.21", "yt-dlp.exe", ytdlp.to_vec(), Some(format!("sha256:{}", sha(ytdlp))));
+    publish_ytdlp(server, "2026.10.21", ytdlp);
     let ff = zip_of(&[("ffmpeg-n9.0/bin/ffmpeg.exe", b"FF"), ("ffmpeg-n9.0/bin/ffprobe.exe", b"FP"), ("ffmpeg-n9.0/bin/ffplay.exe", b"X")]);
     let ff_digest = format!("sha256:{}", sha(&ff));
     publish(server, "BtbN/FFmpeg-Builds", "latest", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip", ff, Some(ff_digest));
@@ -94,7 +105,9 @@ async fn installs_verified_tools_from_releases() {
     tools.install(&ToolKind::ALL).await.unwrap();
 
     let t = dir.path().join("tools");
-    assert_eq!(std::fs::read(t.join("yt-dlp/yt-dlp.exe")).unwrap(), b"yt-dlp v1");
+    let v1 = tools.locate(ToolKind::YtDlp).unwrap().0;
+    assert_eq!(std::fs::read(&v1).unwrap(), b"yt-dlp v1");
+    assert_eq!(std::fs::read(v1.with_file_name("_internal").join("yt_dlp/__init__.pyc")).unwrap(), b"YT", "support files kept");
     assert_eq!(std::fs::read(t.join("ffmpeg/ffmpeg.exe")).unwrap(), b"FF");
     assert_eq!(std::fs::read(t.join("ffmpeg/ffprobe.exe")).unwrap(), b"FP");
     assert!(!t.join("ffmpeg/ffplay.exe").exists(), "only the needed executables are kept");
@@ -107,10 +120,39 @@ async fn installs_verified_tools_from_releases() {
 
     // Same release again: nothing to do. A new release: update available, then installed.
     assert!(!tools.update_available(ToolKind::YtDlp).await.unwrap());
-    publish(&server, "yt-dlp/yt-dlp", "2026.11.01", "yt-dlp.exe", b"yt-dlp v2".to_vec(), Some(format!("sha256:{}", sha(b"yt-dlp v2"))));
+    publish_ytdlp(&server, "2026.11.01", b"yt-dlp v2");
     assert!(tools.update_available(ToolKind::YtDlp).await.unwrap());
     tools.install(&[ToolKind::YtDlp]).await.unwrap();
-    assert_eq!(std::fs::read(t.join("yt-dlp/yt-dlp.exe")).unwrap(), b"yt-dlp v2");
+    let v2 = tools.locate(ToolKind::YtDlp).unwrap().0;
+    assert_eq!(std::fs::read(&v2).unwrap(), b"yt-dlp v2");
+    assert_ne!(v1.parent(), v2.parent(), "each version has its own folder");
+    assert!(!v1.exists(), "the earlier version is removed");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn moves_from_the_single_file_build_to_the_folder_build() {
+    let server = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let sink = Arc::new(Sink::default());
+    // An install from before folder builds: yt-dlp/yt-dlp.exe and no folder in the manifest.
+    let t = dir.path().join("tools");
+    std::fs::create_dir_all(t.join("yt-dlp")).unwrap();
+    std::fs::write(t.join("yt-dlp/yt-dlp.exe"), b"single file").unwrap();
+    std::fs::write(
+        t.join("manifest.json"),
+        r#"{"tools":{"ytDlp":{"release":"2026.10.21","asset":"yt-dlp.exe","sha256":"aa","installedAt":1}}}"#,
+    )
+    .unwrap();
+    publish_all(&server, b"folder build");
+    let tools = manager(dir.path(), &server, &sink);
+    assert_eq!(std::fs::read(tools.locate(ToolKind::YtDlp).unwrap().0).unwrap(), b"single file");
+
+    assert!(tools.update_available(ToolKind::YtDlp).await.unwrap(), "the folder build is offered as an update");
+    tools.install(&[ToolKind::YtDlp]).await.unwrap();
+    let path = tools.locate(ToolKind::YtDlp).unwrap().0;
+    assert_eq!(std::fs::read(&path).unwrap(), b"folder build");
+    assert!(path.with_file_name("_internal").is_dir());
+    assert!(!t.join("yt-dlp/yt-dlp.exe").exists(), "the single-file copy is removed");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -123,13 +165,22 @@ async fn rejects_downloads_that_fail_verification() {
     tools.install(&[ToolKind::YtDlp]).await.unwrap();
 
     // Tampered asset: the published digest doesn't match the bytes served.
-    publish(&server, "yt-dlp/yt-dlp", "evil", "yt-dlp.exe", b"tampered".to_vec(), Some(format!("sha256:{}", sha(b"something else"))));
+    publish(&server, "yt-dlp/yt-dlp", "evil", "yt-dlp_win.zip", ytdlp_zip(b"tampered"), Some(format!("sha256:{}", sha(b"something else"))));
     let err = tools.install(&[ToolKind::YtDlp]).await.unwrap_err().to_string();
     assert!(err.contains("verification"), "{err}");
-    assert_eq!(std::fs::read(dir.path().join("tools/yt-dlp/yt-dlp.exe")).unwrap(), b"good", "existing copy untouched");
+    assert_eq!(std::fs::read(tools.locate(ToolKind::YtDlp).unwrap().0).unwrap(), b"good", "existing copy untouched");
+
+    // An archive whose entries point outside its folder is refused.
+    let escape = zip_of(&[("yt-dlp.exe", b"x"), ("../../evil.exe", b"EVIL")]);
+    let digest = format!("sha256:{}", sha(&escape));
+    publish(&server, "yt-dlp/yt-dlp", "escape", "yt-dlp_win.zip", escape, Some(digest));
+    let err = tools.install(&[ToolKind::YtDlp]).await.unwrap_err().to_string();
+    assert!(err.contains("outside"), "{err}");
+    assert!(!dir.path().join("evil.exe").exists() && !dir.path().join("tools/evil.exe").exists());
+    assert_eq!(std::fs::read(tools.locate(ToolKind::YtDlp).unwrap().0).unwrap(), b"good");
 
     // No digest at all: refuse rather than install unverified code.
-    publish(&server, "yt-dlp/yt-dlp", "nodigest", "yt-dlp.exe", b"unknown".to_vec(), None);
+    publish(&server, "yt-dlp/yt-dlp", "nodigest", "yt-dlp_win.zip", ytdlp_zip(b"unknown"), None);
     let err = tools.install(&[ToolKind::YtDlp]).await.unwrap_err().to_string();
     assert!(err.contains("checksum"), "{err}");
 }

@@ -49,6 +49,7 @@ pub(super) struct TaskContext {
     pub guard: Arc<crate::net_guard::NetGuard>,
     pub cookies: Arc<crate::cookies::CookieJar>,
     pub headers: Arc<crate::request_headers::HeaderStore>,
+    pub media_info: Arc<crate::media::info_cache::InfoCache>,
     /// Set (with the cancel token) when the disk watcher stops the download.
     pub stop_reason: Arc<std::sync::atomic::AtomicU8>,
 }

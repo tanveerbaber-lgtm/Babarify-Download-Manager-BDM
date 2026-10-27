@@ -19,6 +19,7 @@ use super::task::TaskContext;
 use crate::db::downloads;
 use crate::error::AppError;
 use crate::media::output::{Line, friendly_error, parse_line, stage_label};
+use crate::media::info_cache::InfoFile;
 use crate::media::{args, process};
 use crate::models::DownloadStatus;
 
@@ -36,13 +37,22 @@ pub(super) async fn run(ctx: &TaskContext, id: &str) -> EngineResult<()> {
         let conn = ctx.db.lock()?;
         args::MediaExtras::from_settings(&crate::db::settings::load(&conn, "")?)
     };
+    // The format check just made for this video, if any: starting from it
+    // skips asking the site again, several seconds on YouTube. Used once.
+    let url = downloads::require(&*ctx.db.lock()?, id)?.url;
+    let checked = ctx.media_info.take(&url);
     let mut subtitles_failed = false;
-    let mut result = run_inner(ctx, id, &extras, &mut subtitles_failed).await;
+    let mut result = run_inner(ctx, id, &extras, checked.as_deref(), &mut subtitles_failed).await;
+    // Its stream addresses may have expired; asking the site again still works.
+    if checked.is_some() && result.as_ref().is_err_and(|e| !matches!(e, EngineError::Stopped)) {
+        eprintln!("[bdm] starting {id} from its format check failed; asking the site again");
+        result = run_inner(ctx, id, &extras, None, &mut subtitles_failed).await;
+    }
     // Sites often refuse subtitle downloads (YouTube rate-limits them); the
     // video still matters more, so try once more without them.
     if result.is_err() && subtitles_failed {
         eprintln!("[bdm] subtitles failed for {id}; downloading without them");
-        result = run_inner(ctx, id, &extras.without_subtitles(), &mut subtitles_failed).await;
+        result = run_inner(ctx, id, &extras.without_subtitles(), None, &mut subtitles_failed).await;
     }
     if let Err(e) = &result
         && !matches!(e, EngineError::Stopped)
@@ -89,8 +99,15 @@ fn forward_lines<R: AsyncRead + Unpin + Send + 'static>(reader: R, pipe: fn() ->
     });
 }
 
-/// One yt-dlp run. Sets `subtitles_failed` when it failed over subtitles.
-async fn run_inner(ctx: &TaskContext, id: &str, extras: &args::MediaExtras, subtitles_failed: &mut bool) -> EngineResult<()> {
+/// One yt-dlp run, from a format check's JSON when given. Sets
+/// `subtitles_failed` when it failed over subtitles.
+async fn run_inner(
+    ctx: &TaskContext,
+    id: &str,
+    extras: &args::MediaExtras,
+    checked: Option<&[u8]>,
+    subtitles_failed: &mut bool,
+) -> EngineResult<()> {
     *subtitles_failed = false;
     let download = {
         let conn = ctx.db.lock()?;
@@ -146,6 +163,13 @@ async fn run_inner(ctx: &TaskContext, id: &str, extras: &args::MediaExtras, subt
     if let Some(file) = &cookies {
         let at = argv.len() - 2;
         argv.splice(at..at, ["--cookies".to_string(), file.path().to_string_lossy().into_owned()]);
+    }
+    // Deleted when this function returns; it may hold sign-in cookies too.
+    let info_file = checked.map(|json| InfoFile::write(&std::env::temp_dir(), json)).transpose()?;
+    if let Some(file) = &info_file {
+        // yt-dlp reads the video's details from the file instead of the site.
+        argv.truncate(argv.len() - 2);
+        argv.extend(["--load-info-json".to_string(), file.path().to_string_lossy().into_owned()]);
     }
     let mut cmd = process::command(&tools.yt_dlp);
     cmd.args(&argv);

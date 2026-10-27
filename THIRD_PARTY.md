@@ -24,7 +24,7 @@ BDM never bundles these. It downloads them from their official GitHub releases w
 
 | Tool | Source | License | Checked with |
 | --- | --- | --- | --- |
-| yt-dlp | `yt-dlp/yt-dlp` releases, `yt-dlp.exe` | Unlicense (the Windows build bundles Python and libraries under their own permissive licenses) | SHA-256 digest published by GitHub for the asset |
+| yt-dlp | `yt-dlp/yt-dlp` releases, `yt-dlp_win.zip` (the folder build: `yt-dlp.exe` with its `_internal` support files) | Unlicense (the Windows build bundles Python and libraries under their own permissive licenses) | SHA-256 digest published by GitHub for the asset |
 | FFmpeg | `BtbN/FFmpeg-Builds`, `win64-gpl` static build | GPL-3.0 | SHA-256 digest published by GitHub |
 | Deno | `denoland/deno` releases, Windows x64 zip | MIT | SHA-256 digest published by GitHub |
 

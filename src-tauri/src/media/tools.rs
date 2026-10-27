@@ -82,6 +82,12 @@ impl ToolKind {
         !matches!(self, Self::Deno)
     }
 
+    /// Installed as a whole folder (the program with its support files), one
+    /// folder per version, rather than single executables.
+    fn is_folder_build(self) -> bool {
+        matches!(self, Self::YtDlp)
+    }
+
     /// Files to keep from the release asset (exe name → archive suffix).
     fn wanted_files(self) -> &'static [&'static str] {
         match self {
@@ -94,7 +100,9 @@ impl ToolKind {
     /// Picks the Windows x64 asset from a release.
     fn pick_asset(self, assets: &[Asset]) -> Option<&Asset> {
         match self {
-            Self::YtDlp => assets.iter().find(|a| a.name == "yt-dlp.exe"),
+            // The folder build: it starts in well under a second, where the
+            // single-file yt-dlp.exe unpacks itself first on every run.
+            Self::YtDlp => assets.iter().find(|a| a.name == "yt-dlp_win.zip"),
             Self::Deno => assets.iter().find(|a| a.name == "deno-x86_64-pc-windows-msvc.zip"),
             // Static GPL build of the newest release branch, e.g.
             // "ffmpeg-n9.0-latest-win64-gpl-9.0.zip".
@@ -171,6 +179,9 @@ struct InstalledTool {
     asset: String,
     sha256: String,
     installed_at: i64,
+    /// For folder builds: the version's folder inside the tool's folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    folder: Option<String>,
 }
 
 pub struct ToolManager {
@@ -208,7 +219,12 @@ impl ToolManager {
     }
 
     fn managed_path(&self, kind: ToolKind) -> PathBuf {
-        self.tools_dir.join(kind.dir_name()).join(kind.exe())
+        let dir = self.tools_dir.join(kind.dir_name());
+        // A folder build lives in its version's folder, named in the manifest.
+        match self.read_manifest().tools.get(&kind).and_then(|t| t.folder.clone()).filter(|f| is_folder_name(f)) {
+            Some(folder) => dir.join(folder).join(kind.exe()),
+            None => dir.join(kind.exe()),
+        }
     }
 
     /// BDM's own copy first, then PATH.
@@ -329,24 +345,51 @@ impl ToolManager {
         self.emit(kind, asset.size, asset.size, "Installing");
         let staged_dir = staging.join("out");
         std::fs::create_dir_all(&staged_dir)?;
-        let (src, dst, wanted) = (download.clone(), staged_dir.clone(), kind.wanted_files());
-        tokio::task::spawn_blocking(move || extract(&src, &dst, wanted))
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))??;
-
         let target_dir = self.tools_dir.join(kind.dir_name());
         std::fs::create_dir_all(&target_dir)?;
-        for name in wanted_names(kind) {
-            replace_file(&staged_dir.join(name), &target_dir.join(name))?;
-        }
+        let folder = if kind.is_folder_build() {
+            let (src, dst) = (download.clone(), staged_dir.clone());
+            tokio::task::spawn_blocking(move || extract_tree(&src, &dst))
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))??;
+            if !staged_dir.join(kind.exe()).is_file() {
+                let _ = std::fs::remove_dir_all(&staging);
+                return Err(AppError::Io(format!("archive is missing {}", kind.exe())));
+            }
+            // A new folder per version: a running copy can't be replaced, but
+            // the next run simply uses the new folder.
+            let folder = version_folder(&release.tag_name, &expected);
+            let version_dir = target_dir.join(&folder);
+            let _ = std::fs::remove_dir_all(&version_dir);
+            std::fs::rename(&staged_dir, &version_dir)?;
+            Some(folder)
+        } else {
+            let (src, dst, wanted) = (download.clone(), staged_dir.clone(), kind.wanted_files());
+            tokio::task::spawn_blocking(move || extract(&src, &dst, wanted))
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))??;
+            for name in wanted_names(kind) {
+                replace_file(&staged_dir.join(name), &target_dir.join(name))?;
+            }
+            None
+        };
         let _ = std::fs::remove_dir_all(&staging);
 
         let mut manifest = self.read_manifest();
         manifest.tools.insert(
             kind,
-            InstalledTool { release: release.tag_name, asset: asset.name, sha256: expected, installed_at: crate::db::now_ms() },
+            InstalledTool {
+                release: release.tag_name,
+                asset: asset.name,
+                sha256: expected,
+                installed_at: crate::db::now_ms(),
+                folder: folder.clone(),
+            },
         );
         std::fs::write(self.tools_dir.join(MANIFEST), serde_json::to_vec_pretty(&manifest)?)?;
+        if let Some(folder) = &folder {
+            remove_other_versions(&target_dir, folder);
+        }
         self.emit(kind, asset.size, asset.size, "Installed");
         Ok(())
     }
@@ -437,6 +480,66 @@ fn asset_sha256(asset: &Asset) -> AppResult<String> {
 
 fn wanted_names(kind: ToolKind) -> impl Iterator<Item = &'static str> {
     kind.wanted_files().iter().copied()
+}
+
+/// A version's folder name, e.g. "2026.10.26-fd51b212" (release tag and the
+/// start of the archive's SHA-256).
+fn version_folder(tag: &str, sha256: &str) -> String {
+    let tag: String = tag.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')).take(40).collect();
+    format!("{tag}-{}", &sha256[..sha256.len().min(8)])
+}
+
+/// Only plain names come from the manifest into a path.
+fn is_folder_name(name: &str) -> bool {
+    !name.is_empty() && name.len() <= 64 && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')) && name != "." && name != ".."
+}
+
+/// Removes earlier versions next to `keep`, including a single-file
+/// yt-dlp.exe from before folder builds. Copies still running stay until the
+/// next update.
+fn remove_other_versions(dir: &Path, keep: &str) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy() == keep {
+            continue;
+        }
+        let path = entry.path();
+        let _ = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
+    }
+}
+
+/// Most a folder build may unpack to; yt-dlp's is about 40 MB.
+const MAX_UNPACKED: u64 = 512 * 1024 * 1024;
+
+/// Unpacks a whole zip (a program and its support files) into `out_dir`.
+/// Entry paths are checked with `enclosed_name`, so nothing lands outside
+/// `out_dir`, and the unpacked size is capped.
+fn extract_tree(asset: &Path, out_dir: &Path) -> AppResult<()> {
+    let bad = |e: &dyn std::fmt::Display| AppError::Io(format!("bad archive: {e}"));
+    let file = std::fs::File::open(asset)?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| bad(&e))?;
+    let mut total = 0u64;
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| bad(&e))?;
+        let rel = entry.enclosed_name().ok_or_else(|| bad(&"an entry points outside the folder"))?;
+        let path = out_dir.join(rel);
+        if entry.is_dir() {
+            std::fs::create_dir_all(&path)?;
+            continue;
+        }
+        let size = entry.size();
+        total = total.saturating_add(size);
+        if total > MAX_UNPACKED {
+            return Err(bad(&"too large when unpacked"));
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut out = std::fs::File::create(&path)?;
+        // Never more than the entry claims, whatever the compressed data says.
+        std::io::copy(&mut (&mut entry).take(size), &mut out)?;
+    }
+    Ok(())
 }
 
 /// Copies the wanted executables out of a zip (by file name, from any

@@ -35,6 +35,7 @@ use crate::error::{AppError, AppResult};
 use crate::media::tools::ToolManager;
 use crate::models::{Download, DownloadStatus, Settings};
 use crate::cookies::CookieJar;
+use crate::media::info_cache::InfoCache;
 use crate::request_headers::HeaderStore;
 use crate::net_guard::NetGuard;
 use error::EngineError;
@@ -190,6 +191,7 @@ struct Inner {
     scanner: Option<std::path::PathBuf>,
     cookies: Arc<CookieJar>,
     headers: Arc<HeaderStore>,
+    media_info: Arc<InfoCache>,
 }
 
 #[derive(Clone)]
@@ -224,6 +226,7 @@ impl Engine {
                 scanner,
                 cookies: Arc::new(CookieJar::new()),
                 headers: Arc::new(HeaderStore::new()),
+                media_info: Arc::new(InfoCache::new()),
                 sched: Mutex::new(Scheduler {
                     active: HashMap::new(),
                     max_concurrent: 1,
@@ -487,6 +490,11 @@ impl Engine {
         &self.inner.headers
     }
 
+    /// Recent format checks, so a video's download can start from its check.
+    pub fn media_info(&self) -> &Arc<InfoCache> {
+        &self.inner.media_info
+    }
+
     /// Re-runs selection after a priority or order change.
     pub fn reschedule(&self) -> AppResult<()> {
         self.schedule()
@@ -589,6 +597,7 @@ impl Engine {
                 stop_reason: active.reason.clone(),
                 cookies: self.inner.cookies.clone(),
                 headers: self.inner.headers.clone(),
+                media_info: self.inner.media_info.clone(),
             };
             let reason = active.reason.clone();
             sched.active.insert(id.clone(), active);
