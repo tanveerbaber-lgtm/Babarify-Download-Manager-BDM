@@ -3275,3 +3275,55 @@ body,
     transition: none;
   }
 }
+
+/* ---------- Compact "Download Complete" summary ----------
+   The window shrinks around it (fit_download_window), so no centring in a
+   tall window: icon and title on one line, then the details and buttons. */
+
+.dlw.dlw-summary {
+  height: auto;
+  min-height: 100vh;
+  padding: 12px 14px;
+}
+
+.dlw-summary .dlw-complete {
+  align-items: stretch;
+  gap: 10px;
+  margin: 0;
+  max-width: none;
+  text-align: left;
+}
+
+.dlw-complete-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.dlw-complete-head .dlw-complete-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.dlw-complete-head h1 {
+  font-size: var(--text-heading);
+  line-height: 1.2;
+}
+
+.dlw-complete-head .dlw-name {
+  margin-top: 2px;
+  font-size: var(--text-body);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.dlw-summary .dlw-grid .path {
+  font-family: inherit;
+  font-size: var(--text-body);
+  word-break: break-all;
+}
+
+.dlw-summary .dlw-actions {
+  justify-content: flex-end;
+}

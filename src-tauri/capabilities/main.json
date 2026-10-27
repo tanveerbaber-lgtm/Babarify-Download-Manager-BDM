@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Least-privilege capability for the main window: listening to BDM's own events, closing and titling its own windows, a file/folder picker, and BDM's own commands. No window, webview, path, menu, tray, filesystem, shell, HTTP, opener or notification APIs are granted to the webview; files are opened and notifications shown by the Rust side only.",
+  "description": "Least-privilege capability for the main window: listening to BDM's own events, closing and titling its own windows, fitting a download window's height (BDM's own command), a file/folder picker, and BDM's own commands. No window, webview, path, menu, tray, filesystem, shell, HTTP, opener or notification APIs are granted to the webview; files are opened and notifications shown by the Rust side only.",
   "windows": [
     "main",
     "download-*"
@@ -53,6 +53,7 @@
     "allow-file-sha256",
     "allow-bulk-action",
     "allow-open-download-window",
+    "allow-fit-download-window",
     "allow-open-legal-document",
     "allow-refresh-download-link",
     "allow-take-startup-requests",

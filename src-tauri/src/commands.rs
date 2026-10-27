@@ -695,12 +695,28 @@ pub async fn open_download_window(id: String, app: tauri::AppHandle, state: Stat
         .title(d.title.as_deref().unwrap_or(&d.file_name))
         // Tall enough for the speed meter, the details and the first connections.
         .inner_size(500.0, 500.0)
-        .min_inner_size(420.0, 320.0)
+        // Low enough for the compact "Download Complete" summary.
+        .min_inner_size(420.0, 200.0)
         .resizable(true)
         .build()
         .map_err(|e| AppError::Internal(format!("couldn't open the download window: {e}")))?;
     crate::title_bar::paint(&window);
     Ok(())
+}
+
+/// Fits the calling download window to its content's height, e.g. the
+/// compact "Download Complete" summary. Only download windows, and only
+/// within the heights a download window normally has.
+#[tauri::command]
+pub async fn fit_download_window(height: f64, window: tauri::WebviewWindow) -> AppResult<()> {
+    if !window.label().starts_with("download-") || !height.is_finite() {
+        return Err(AppError::Validation("Only a download window can be fitted.".into()));
+    }
+    let scale = window.scale_factor().map_err(|e| AppError::Internal(e.to_string()))?;
+    let width = window.inner_size().map_err(|e| AppError::Internal(e.to_string()))?.width as f64 / scale;
+    window
+        .set_size(tauri::LogicalSize::new(width, height.clamp(200.0, 500.0)))
+        .map_err(|e| AppError::Internal(format!("couldn't resize the window: {e}")))
 }
 
 /// Adds a download sent by the browser extension and starts it.

@@ -94,6 +94,17 @@ export function DownloadWindow({ id }: { id: string }) {
     if (done.closeWindow && !done.summary) void getCurrentWindow().close();
   }, [status, download, done]);
 
+  // The "Download Complete" summary is short: shrink the window around it.
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const showSummary = status === "completed" && done.summary;
+  useEffect(() => {
+    const el = summaryRef.current;
+    if (!showSummary || !el?.parentElement) return;
+    const style = getComputedStyle(el.parentElement);
+    const height = el.getBoundingClientRect().height + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    void api.fitDownloadWindow(Math.ceil(height)).catch(() => {});
+  }, [showSummary, download?.scanResult, error]);
+
   function setDoneOption(key: keyof DoneOptions, value: boolean) {
     const next = { ...done, [key]: value };
     setDone(next);
@@ -124,13 +135,17 @@ export function DownloadWindow({ id }: { id: string }) {
     return <div className="dlw dlw-empty">{error ?? "Loading…"}</div>;
   }
 
-  if (status === "completed" && done.summary) {
+  if (showSummary) {
     return (
-      <div className="dlw">
-        <div className="dlw-complete">
-          <CheckCircle2 size={44} className="dlw-complete-icon" aria-hidden />
-          <h1>Download Complete</h1>
-          <p className="dlw-name">{name}</p>
+      <div className="dlw dlw-summary">
+        <div className="dlw-complete" ref={summaryRef}>
+          <div className="dlw-complete-head">
+            <CheckCircle2 size={28} className="dlw-complete-icon" aria-hidden />
+            <div>
+              <h1>Download Complete</h1>
+              <p className="dlw-name">{name}</p>
+            </div>
+          </div>
           <dl className="dlw-grid">
             <dt>Size</dt>
             <dd>{formatBytes(download.totalBytes)}</dd>

@@ -72,6 +72,7 @@ export const api = {
   redownload: (ids: string[]) => call<Download[]>("redownload", { ids }),
   refreshDownloadLink: (id: string, url: string, resume: boolean) => call<Download>("refresh_download_link", { id, url, resume }),
   diskFreeSpace: (path: string) => call<number | null>("disk_free_space", { path }),
+  fitDownloadWindow: (height: number) => call<void>("fit_download_window", { height }),
   clearFinished: () => call<string[]>("clear_finished"),
   openDownload: (id: string) => call<void>("open_download", { id }),
   showInFolder: (id: string) => call<void>("show_in_folder", { id }),

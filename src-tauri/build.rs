@@ -43,6 +43,7 @@ const COMMANDS: &[&str] = &[
     "file_sha256",
     "bulk_action",
     "open_download_window",
+    "fit_download_window",
     "open_legal_document",
     "refresh_download_link",
     "disk_free_space",

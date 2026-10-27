@@ -377,6 +377,7 @@ pub fn run() {
             commands::file_sha256,
             commands::bulk_action,
             commands::open_download_window,
+            commands::fit_download_window,
             commands::open_legal_document,
             commands::refresh_download_link,
             commands::disk_free_space,

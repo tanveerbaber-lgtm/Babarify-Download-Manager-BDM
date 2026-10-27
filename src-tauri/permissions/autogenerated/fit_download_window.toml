@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fit-download-window"
+description = "Enables the fit_download_window command without any pre-configured scope."
+commands.allow = ["fit_download_window"]
+
+[[permission]]
+identifier = "deny-fit-download-window"
+description = "Denies the fit_download_window command without any pre-configured scope."
+commands.deny = ["fit_download_window"]

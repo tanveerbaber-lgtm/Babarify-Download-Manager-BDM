@@ -751,3 +751,14 @@ answers, permission justifications, and the store extension IDs BDM must allow b
   options, and the on-video panel. Sample data only.
 - **Found:** the extension options showed "No sites yet." under a listed sign-in site, because `small { display:
   block }` beat the `hidden` attribute. **Fixed** with a `[hidden]` rule in options.css. Extension tests: 14 pass.
+
+## Compact "Download Complete" window (2026-10-27)
+
+- The summary was centred in the 500 x 500 download window, leaving most of it empty. Now the icon and title share a
+  line with the name below, the details follow (path in the body font, not large monospace) and the buttons sit
+  at the right.
+- The window shrinks around the summary through a new BDM command, `fit_download_window`: it only resizes the
+  download window that calls it, keeps its width, and keeps the height between 200 and 500 px. The download
+  window's minimum height went from 320 to 200 px so it can shrink that far.
+- Preview with a long file name and a virus-scan result: about 200 px tall (was about 650 at the user's scale).
+  TypeScript and Clippy clean. Not yet seen in the installed app.
