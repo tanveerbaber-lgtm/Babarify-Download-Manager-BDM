@@ -2,8 +2,13 @@
 // turns the panel on in the extension's options (which grants site access).
 // Everything lives in a closed shadow root so pages can't restyle or read it.
 (() => {
-  if (window.__bdmVideoPanel) return;
-  window.__bdmVideoPanel = true;
+  // After the extension is updated or reloaded, a copy injected earlier can't
+  // reach BDM any more. The extension injects a fresh copy into open tabs; it
+  // takes over from a disconnected one but never runs twice next to a live one.
+  if (window.__bdmVideoPanel?.alive()) return;
+  window.__bdmVideoPanel?.stop();
+  const alive = () => Boolean(chrome.runtime?.id);
+  window.__bdmVideoPanel = { alive, stop };
 
   const MIN_WIDTH = 240;
   const STREAM_URL = /\.(m3u8|mpd)(\?|#|$)/i;
@@ -144,6 +149,11 @@
   }
 
   function refresh() {
+    if (stopped) return;
+    if (!alive()) {
+      stop();
+      return;
+    }
     if (location.href !== lastUrl) {
       lastUrl = location.href;
       dismissed = new WeakSet();
@@ -427,6 +437,15 @@
   document.addEventListener("loadedmetadata", schedule, true);
   document.addEventListener("play", schedule, true);
   // Single-page sites (e.g. YouTube) swap videos without reloading.
-  setInterval(refresh, 1000);
+  const timer = setInterval(refresh, 1000);
+  let stopped = false;
+
+  /** Removes this copy: the extension was updated or reloaded, or a fresh copy took over. */
+  function stop() {
+    stopped = true;
+    clearInterval(timer);
+    host.remove();
+  }
+
   refresh();
 })();

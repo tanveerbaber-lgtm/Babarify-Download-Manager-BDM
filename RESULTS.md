@@ -762,3 +762,21 @@ answers, permission justifications, and the store extension IDs BDM must allow b
   window's minimum height went from 320 to 200 px so it can shrink that far.
 - Preview with a long file name and a virus-scan result: about 200 px tall (was about 650 at the user's scale).
   TypeScript and Clippy clean. Not yet seen in the installed app.
+
+## Open tabs keep working after an extension update (2026-10-27)
+
+- **Problem:** after the extension was updated or reloaded, the "Download With BDM" panel already in open tabs
+  (e.g. YouTube) was cut off from the extension and answered "The BDM extension was updated. Reload this page."
+  Registered content scripts only reach pages loaded later.
+- **Change:** after an update or reload (`onInstalled` reason "update"), and when the panel is switched on, the
+  background injects the panel into every open http(s) tab. The page is **not** reloaded, so videos keep playing and
+  nothing typed into other pages is lost. The old copy checks `chrome.runtime.id` every second and removes itself
+  once disconnected; a new copy takes over from a disconnected one but never runs beside a live one.
+- **Tests (real Chrome 155, throwaway profile):**
+  - Reload with a video playing: same page (timeOrigin unchanged), video still playing, one panel, and it reached
+    the reloaded extension. The same test on the code before this change: "The BDM extension was updated. Reload
+    this page." (fail), so the test catches the problem.
+  - Switching the panel on with a page already open: the panel appears there without a reload.
+  - Extension unit tests: 14 pass.
+- The extension already in your Chrome needs one last manual reload to get this; later updates refresh tabs by
+  themselves. BDM app updates don't need it: the extension talks to BDM fresh for each request.

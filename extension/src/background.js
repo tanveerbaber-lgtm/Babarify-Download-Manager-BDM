@@ -291,13 +291,40 @@ async function syncVideoPanel() {
       allFrames: true,
       persistAcrossSessions: true,
     }]);
+    // Registered scripts only reach pages loaded from now on.
+    await injectPanelIntoOpenTabs();
   } else if ((!videoPanel || !allowed) && existing.length > 0) {
     await chrome.scripting.unregisterContentScripts({ ids: [PANEL_ID] });
   }
 }
 
+/**
+ * Adds the panel to tabs that are already open, so it works there without
+ * reloading the page: after the panel is switched on, and after the
+ * extension is updated or reloaded (which disconnects the copies already in
+ * pages). The page keeps its state, e.g. a playing video.
+ */
+async function injectPanelIntoOpenTabs() {
+  const { videoPanel } = await getSettings();
+  if (!videoPanel || !chrome.scripting || !(await chrome.permissions.contains(PANEL_PERMISSIONS))) return;
+  const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  await Promise.all(
+    tabs
+      .filter((tab) => tab.id != null && !tab.discarded)
+      .map((tab) =>
+        chrome.scripting
+          .executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["src/video-panel.js"] })
+          // Pages the browser protects (the Web Store, error pages) refuse scripts.
+          .catch(() => {}),
+      ),
+  );
+}
+
 const syncPanelSafely = () => syncVideoPanel().catch(() => {});
 syncPanelSafely();
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === "update") injectPanelIntoOpenTabs().catch(() => {});
+});
 chrome.permissions.onAdded.addListener(syncPanelSafely);
 chrome.permissions.onRemoved.addListener(syncPanelSafely);
 chrome.storage.onChanged.addListener((changes, area) => {

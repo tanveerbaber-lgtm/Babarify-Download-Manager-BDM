@@ -17,9 +17,9 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 | M5 — Advanced Download Management | 9 | 1 | 10 | In progress (1 check left) |
 | M6 — Security, Reliability and Performance | 10 | 1 | 11 | In progress |
 | M7 — Windows Installer and Release | 7 | 3 | 10 | In progress |
-| After 1.0 — Power features | 1 | 2 | 3 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
+| After 1.0 — Power features | 2 | 2 | 4 | In progress (roadmap: https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n) |
 | M8 — BDM 1.1 Everyday power | 6 | 1 | 7 | In progress (Windows startup to confirm) |
-| **Total** | **73** | **10** | **83** | |
+| **Total** | **74** | **10** | **84** | |
 
 ## M1 — Desktop Foundation
 Build the application shell and establish the project architecture.
@@ -267,6 +267,10 @@ Features from the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), a
   - [x] Checked in the frontend preview at 1180 px and 900 px wide and in the download window
   - [x] Installed app: shown on the list and in the download window; the window opens at 500 × 500 to fit it
   - [x] Found while checking: titles with ’ made yt-dlp's output unreadable and failed the video (Errno 22); fixed (UTF-8 output, lossy reading)
+- [x] Open tabs keep working after the extension is updated or reloaded.
+  - [x] The video panel is added to open tabs after an update or reload, and when it's switched on; no page reload, so a playing video keeps playing
+  - [x] A panel left from the earlier version notices it's disconnected and removes itself; a fresh copy never runs next to a live one
+  - [x] Real Chrome test: reload with a playing video → page kept, one panel, reaches the new extension (the code before this change answered "Reload this page")
 
 ## M8 — BDM 1.1 Everyday power
 Phase 1.1 of the roadmap (https://claude.ai/artifact/7StcfjyY9R3GVYrSQ7cW2n), one feature at a time.
