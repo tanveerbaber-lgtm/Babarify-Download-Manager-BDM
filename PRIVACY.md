@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Babarify Download Manager (BDM) and its browser extension** · Effective 2026-10-25 · Version 1.0.0
+**Babarify Download Manager (BDM) and its browser extension** · Effective 2026-11-04 · Version 1.0.0
 
 BDM is a desktop program. It has **no accounts, no telemetry, no analytics and no advertising**, and Babarify runs no
 servers that BDM talks to. Everything described below stays on your PC unless you download something.
@@ -20,7 +20,7 @@ Downloaded files are saved where you choose. BDM never uploads them anywhere.
 
 ## Network connections BDM makes
 
-- **The servers you download from**, when you add or resume a download. They see what any download would show: your
+- **The sites you download from**, when you add or resume a download or list a video's formats. They see what any download would show: your
   IP address, BDM's user agent and, for links sent by the browser, the referring site (only its origin when the
   download is on another site).
 - **GitHub** (`api.github.com`, `github.com`), to install or update yt-dlp, FFmpeg and Deno, and to check for a
@@ -40,6 +40,9 @@ BDM doesn't send your download list, settings or any identifier to Babarify or a
   never saves them to disk except as a temporary file handed to yt-dlp and deleted when it finishes, forgets them
   after 12 hours or when it closes, and sends each cookie only to the site it belongs to. Removing the site in the
   options stops this and withdraws the permission.
+- **Video details (BDM app):** after listing a video's formats, BDM keeps the details yt-dlp found, which can include
+  those sign-in cookies, in memory for up to 20 minutes so the download starts faster. They are used once, reach disk
+  only as a temporary file for yt-dlp that is deleted when it finishes, and are gone when BDM closes.
 - **Virus scan (BDM app):** with "Scan finished downloads for viruses" on (Settings → Security), each finished
   file is checked by Microsoft Defender on your PC (`MpCmdRun.exe`). BDM sends nothing anywhere for this; whether
   Defender itself shares samples with Microsoft is set in Windows Security.
@@ -51,8 +54,8 @@ BDM doesn't send your download list, settings or any identifier to Babarify or a
   or Authorization). They stay in the browser's memory for that tab and go to BDM only with that video when you
   choose it; BDM keeps them in memory for up to 12 hours and passes them to yt-dlp for that video.
 - **Video detection** and the **on-video panel** are off until you turn them on and grant site access. Then the
-  extension looks for video on the pages you visit and, only when you click it, sends that page's address to BDM to
-  list formats.
+  extension looks for video on the pages you visit and, only when you click it, sends that page's address and title
+  to BDM to list formats. If BDM can't read the page, it also sends the addresses of the videos the page is playing.
 - Extension settings are kept in your browser's sync storage. The extension has no network access of its own.
 
 ## Your control

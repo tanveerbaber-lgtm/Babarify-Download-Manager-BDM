@@ -74,7 +74,7 @@ footer. Content and design notes follow.
 ### 6. Download section (id `download`)
 
 - Heading: "Get BDM for Windows"
-- Button: **Download BDM 1.0.0 (64-bit installer, 3.4 MB)** → **[decide: download link, see Hosting below]**
+- Button: **Download BDM 1.0.0 (64-bit installer, 3.4 MB)** → the installer link under Download links below
 - Second button: **Browser extension (Chrome / Edge)** → store links when published; until then the extension zip.
 - Requirements: Windows 10 or 11, 64-bit · WebView2 (built into Windows 11; the installer adds it on Windows 10 if
   needed) · about 10 MB of disk space (the optional video tools add about 250 MB).
@@ -124,11 +124,9 @@ keep the URL stable.
   `16-extension-popup.png`, section 4 `03-download-window.png`, section 5 `12b-settings-security.png`; the
   feature cards can each use the matching screenshot (e.g. batch → `09-batch-download.png`).
 
-## Hosting the download **[decide]**
+## Download links
 
-The BDM GitHub repository is private, so its release files can't be downloaded by visitors. Choose one:
+The BDM repository is public, so these always point to the newest GitHub release:
 
-1. **Host the files on babarify.com** (simplest): upload the installer and the extension zip, and link to them.
-2. **A separate public GitHub repository** just for releases (e.g. `babarify/bdm-releases`): visitors download
-   from its Releases page; the source code stays private.
-3. Make the source repository public (not recommended; the licence is proprietary).
+- Installer: https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM/releases/latest/download/BabarifyDownloadManager_1.0.0_x64-setup.exe
+- Browser extension: https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM/releases/latest/download/BabarifyDownloadManager_1.0.0_browser-extension.zip

@@ -831,3 +831,12 @@ Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 s
 - `website-assets/18-video-panel.png` retaken with the animated button.
 - **Still needed before submitting:** developer account verified; `babarify.com/bdm/privacy` live; a public BDM
   download; the store's ID added to BDM and that BDM released.
+
+## Privacy page prompt and public repository (2026-11-04)
+
+- The repository is public (user's decision). Checked: no private keys, tokens or sensitive files in tracked files or
+  in the names of files in history; release download links answer; `PRIVACY.md` is readable.
+- `PRIVACY.md` updated: format checks kept up to 20 minutes for faster downloads, the page title and playing video
+  addresses the panel sends when BDM can't read a page, and format lookups under network connections.
+- `WEBSITE_PRIVACY_PROMPT.md`: the prompt for the website chat, with the policy text. `WEBSITE_BDM_PAGE.md` has the
+  public download links; they serve the Oct 26 build until the v1.0.0 release is updated.
