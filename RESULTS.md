@@ -818,4 +818,16 @@ Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 s
 - People who ask Windows or the browser for reduced motion get a still gradient.
 - Checked with the real panel script in Chrome (stand-in extension API): frames differ over time, and they're identical with
   reduced motion on. Extension tests: 14 pass. Not yet seen in the installed extension on a real site.
-- `website-assets/18-video-panel.png` still shows the earlier button.
+
+## Chrome Web Store package and images (2026-11-04)
+
+- **Decision (user):** YouTube stays in the store version, accepting the risk of rejection. The policy forbids
+  facilitating unauthorized downloads of copyrighted content and says video downloaders aren't featured.
+- `store-assets/`: `bdm-extension-1.0.0-store.zip` (manifest at the root, no `key`, no tests), five 1280x800
+  screenshots, a 440x280 tile (JPEG, so no alpha channel) and LISTING.md with the text to paste.
+- Checked: everything the manifest names is in the zip; it loads in Chrome 156 with its service worker, popup and
+  options working. It reports "BDM isn't connected" there as expected: no BDM helper in that profile, and its ID isn't
+  in `EXTENSION_IDS` until the store assigns one.
+- `website-assets/18-video-panel.png` retaken with the animated button.
+- **Still needed before submitting:** developer account verified; `babarify.com/bdm/privacy` live; a public BDM
+  download; the store's ID added to BDM and that BDM released.
