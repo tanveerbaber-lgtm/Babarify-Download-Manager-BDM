@@ -808,3 +808,14 @@ Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 s
   single-file build, and a zip with `../` entries refused. 194 Rust tests pass; Clippy clean.
 - Remaining time on YouTube is the site itself: page, player script and its JS challenge (about 4 s), which every
   downloader has to do once per video.
+
+## Animated Babarify colours on "Download With BDM" (2026-11-04)
+
+- The panel's main button now has a slowly moving blue-to-green background (6 s loop, no visible jump).
+- White text needs contrast, and the brand's bright sky (#0EA5E9, 2.8:1) and green (#10B981, 2.5:1) fall short, so the
+  gradient uses deeper shades of them: #1D4ED8, #2563EB, #0369A1 and #047857, all at least 5.1:1.
+- The logo has the same colours, so it sits on a small navy circle. Hover brightens the button.
+- People who ask Windows or the browser for reduced motion get a still gradient.
+- Checked with the real panel script in Chrome (stand-in extension API): frames differ over time, and they're identical with
+  reduced motion on. Extension tests: 14 pass. Not yet seen in the installed extension on a real site.
+- `website-assets/18-video-panel.png` still shows the earlier button.

@@ -39,8 +39,12 @@
     /* 1px gradient edge drawn with a masked pseudo-element. */
     .bar::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(90deg, rgba(37, 99, 235, .9), rgba(16, 185, 129, .9)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
     button { all: unset; box-sizing: border-box; cursor: pointer; }
-    .main { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 9px 0 5px; border-radius: 999px; font-weight: 600; letter-spacing: .1px; color: #fff; white-space: nowrap; transition: background .15s; }
-    .main:hover, .main[aria-expanded="true"] { background: rgba(37, 99, 235, .45); }
+    .main { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 9px 0 5px; border-radius: 999px; font-weight: 600; letter-spacing: .1px; color: #fff; white-space: nowrap; background-image: linear-gradient(90deg, #1d4ed8, #2563eb, #0369a1, #047857, #0369a1, #2563eb, #1d4ed8); background-size: 200% 100%; animation: bdm-flow 6s linear infinite; transition: filter .15s; }
+    /* The logo shares these colours, so it sits on navy to stay visible. */
+    .main svg { flex: none; box-sizing: content-box; margin-left: -3px; padding: 1px 2px; border-radius: 50%; background: #0f172a; }
+    .main:hover, .main[aria-expanded="true"] { filter: brightness(1.15); }
+    /* Moves a full image width, so the first and last colours meet without a jump. */
+    @keyframes bdm-flow { to { background-position: 200% 0; } }
     .icon { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #94a3b8; font-size: 11px; font-weight: 700; transition: background .15s, color .15s; }
     .icon:hover { background: rgba(255, 255, 255, .12); color: #fff; }
     .sep { width: 1px; height: 12px; margin: 0 2px; background: rgba(255, 255, 255, .14); }
@@ -69,7 +73,7 @@
     .license { margin: 3px 3px 1px; padding: 4px 4px 2px; border-top: 1px solid rgba(255, 255, 255, .08); color: #6ee7b7; font-size: 10px; }
     .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid rgba(148, 163, 184, .35); border-top-color: #60a5fa; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 2s !important; } }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 2s !important; } .main { animation: none !important; } }
   `;
 
   // ---------------------------------------------------------------- UI shell
