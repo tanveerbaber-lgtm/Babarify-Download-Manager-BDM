@@ -9,19 +9,20 @@ Everything to upload or paste. Permission justifications and more detail are in 
 | Package | `bdm-extension-1.0.0-store.zip` (not `extension.zip` in the project root) |
 | Screenshots | `screenshot-1-video-panel.jpg` to `screenshot-5-download-window.jpg` (1280×800) |
 | Small promo tile | `promo-tile-440x280.jpg` |
+| Marquee promo tile (optional) | `marquee-1400x560.jpg` |
 | Store icon | `extension/icons/icon-128.png` |
 | Category | Tools (under Productivity) |
 | Language | English |
 
 ## Detailed description
 
-Paste this. Replace the two links once they exist.
+Paste this.
 
 ```text
 Send downloads, links and videos from Chrome to Babarify Download Manager (BDM), a fast download manager for Windows.
 
 REQUIRES THE DESKTOP APP
-This extension works together with the Babarify Download Manager app for Windows 10 and 11. Without the app, downloads simply stay in the browser. Get BDM: [DOWNLOAD LINK]
+This extension works together with the Babarify Download Manager app for Windows 10 and 11. Without the app, downloads simply stay in the browser. Get BDM: https://babarify.com/bdm
 
 WHAT IT DOES
 • Capture downloads: files you download go to BDM, by file type, with sites you can exclude
@@ -36,7 +37,7 @@ WHAT BDM ADDS
 • Queues, schedules, speed limits, batch downloads and a virus scan with Microsoft Defender
 
 YOUR PRIVACY
-No accounts, no analytics and no ads. Addresses you send go only to the BDM app on your own PC, never to Babarify. Optional features stay off until you turn them on and grant permission. Privacy policy: [PRIVACY LINK]
+No accounts, no analytics and no ads. Addresses you send go only to the BDM app on your own PC, never to Babarify. Optional features stay off until you turn them on and grant permission. Privacy policy: https://babarify.com/bdm/privacy
 
 USE IT RESPONSIBLY
 Only download content you have the right to save. DRM-protected media is refused.
@@ -47,12 +48,12 @@ Only download content you have the right to save. DRM-protected media is refused
 - **Single purpose:** Sends downloads, links and videos the user chooses to the Babarify Download Manager desktop app on the same PC.
 - **Remote code:** No.
 - **Data usage:** Web history and Authentication information, as explained in `STORE_LISTING.md`.
-- **Privacy policy URL:** `https://babarify.com/bdm/privacy`, once that page is live.
+- **Privacy policy URL:** `https://babarify.com/bdm/privacy`
 
 ## Test instructions for the reviewer
 
-Replace the link once it exists.
+Paste this.
 
 ```text
-This extension requires the Babarify Download Manager desktop app for Windows: [DOWNLOAD LINK]. Install it, then reload the extension. The popup should say "Connected to BDM". Without the app, the popup says "BDM isn't connected" and downloads stay in the browser. To try the video button, turn on "Show Download With BDM on videos" in the extension's options, and allow it when Chrome asks.
+This extension requires the Babarify Download Manager desktop app for Windows: https://babarify.com/bdm. Install it, then reload the extension. The popup should say "Connected to BDM". Without the app, the popup says "BDM isn't connected" and downloads stay in the browser. To try the video button, turn on "Show Download With BDM on videos" in the extension's options, and allow it when Chrome asks.
 ```

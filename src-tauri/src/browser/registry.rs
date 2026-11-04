@@ -94,16 +94,22 @@ pub fn register(data_dir: &Path, host_exe: &Path) -> AppResult<()> {
     Ok(())
 }
 
-/// Whether the browsers' registration is missing or points at another helper
-/// (e.g. a development build, or an older install in another folder).
+/// Whether the browsers' registration is missing, points at another helper
+/// (e.g. a development build, or an older install in another folder), or
+/// allows a different list of extensions (an upgrade that adds a store ID).
 pub fn needs_registration(data_dir: &Path, host_exe: &Path) -> bool {
     let manifest = manifest_path(data_dir);
-    let points_here = std::fs::read(&manifest)
-        .ok()
-        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
-        .and_then(|v| v["path"].as_str().map(PathBuf::from))
-        .is_some_and(|p| same_path(&p, host_exe));
-    !points_here || Browser::ALL.into_iter().any(|b| !read_key(b).is_some_and(|k| same_path(&k, &manifest)))
+    let current = std::fs::read(&manifest).is_ok_and(|b| manifest_is_current(&b, host_exe));
+    !current || Browser::ALL.into_iter().any(|b| !read_key(b).is_some_and(|k| same_path(&k, &manifest)))
+}
+
+/// Whether a written manifest names this helper and today's allowed extensions.
+fn manifest_is_current(bytes: &[u8], host_exe: &Path) -> bool {
+    let Ok(written) = serde_json::from_slice::<serde_json::Value>(bytes) else { return false };
+    let points_here = written["path"].as_str().is_some_and(|p| same_path(Path::new(p), host_exe));
+    let wanted = manifest_for(host_exe).allowed_origins;
+    let origins = written["allowed_origins"].as_array().map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>());
+    points_here && origins.is_some_and(|o| o == wanted.iter().map(String::as_str).collect::<Vec<_>>())
 }
 
 /// Removes both registry keys and the manifest.
@@ -187,6 +193,20 @@ mod tests {
         let origins: Vec<&str> = json["allowed_origins"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
         assert!(!origins.is_empty());
         assert!(origins.iter().all(|o| o.starts_with("chrome-extension://") && o.ends_with('/') && !o.contains('*')));
+    }
+
+    #[test]
+    fn an_upgrade_that_adds_an_extension_id_registers_again() {
+        let host = Path::new(r"C:\BDM\bdm-native-host.exe");
+        let current = serde_json::to_vec(&manifest_for(host)).unwrap();
+        assert!(manifest_is_current(&current, host));
+        // Written by a version that only knew the development ID.
+        let mut older = serde_json::to_value(manifest_for(host)).unwrap();
+        older["allowed_origins"] = serde_json::json!(["chrome-extension://emaohblojdddihemfkbcchbfgaaanjkb/"]);
+        assert!(!manifest_is_current(&serde_json::to_vec(&older).unwrap(), host));
+        // Same IDs, but another install's helper.
+        assert!(!manifest_is_current(&current, Path::new(r"D:\Other\bdm-native-host.exe")));
+        assert!(!manifest_is_current(b"not json", host));
     }
 
     #[test]

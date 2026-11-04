@@ -152,6 +152,11 @@ mod tests {
     }
 
     #[test]
+    fn accepts_the_chrome_web_store_copy() {
+        assert!(caller_allowed(&["chrome-extension://kamcoajmedllmkajbgjenlbajkbilgie/".to_string()]));
+    }
+
+    #[test]
     fn rejects_unknown_extensions() {
         assert!(caller_allowed(&[ORIGIN.into(), "--parent-window=0".into()]));
         assert!(!caller_allowed(&["chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/".into()]));

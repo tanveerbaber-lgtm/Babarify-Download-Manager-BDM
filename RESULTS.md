@@ -840,3 +840,23 @@ Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 s
   addresses the panel sends when BDM can't read a page, and format lookups under network connections.
 - `WEBSITE_PRIVACY_PROMPT.md`: the prompt for the website chat, with the policy text. `WEBSITE_BDM_PAGE.md` has the
   public download links; they serve the Oct 26 build until the v1.0.0 release is updated.
+
+## Chrome Web Store ID added (2026-11-04)
+
+- The store assigned `kamcoajmedllmkajbgjenlbajkbilgie` to the draft; it's now in `EXTENSION_IDS`, so BDM's browser
+  helper accepts the store copy.
+- **Found:** `needs_registration` only compared the helper's path, so upgrading over an existing install would have
+  kept the old list of allowed extensions, and the store copy would have been refused for everyone who already had
+  BDM. **Fixed:** it also compares the allowed extensions, and registers again when they differ.
+- Browser Integration page: the "Load unpacked" steps now point to the unzipped download, and say the store is coming.
+- Tests: the helper accepts the store ID; an older manifest registers again. 196 Rust tests and 14 extension tests pass.
+- Not yet proven end to end: the real store copy talking to BDM needs the published extension. Check that first after
+  it's approved.
+
+## v1.0.0 release updated (2026-11-04)
+
+- Replaced the installer, extension zip, notes and checksums, and moved the `v1.0.0` tag to this commit (user approved).
+- Installer SHA-256 `c27487f96a51d88f57dd42c0c6f6232a2e9aa40cd62c07e523d263d8c6aac450`; extension zip
+  `cd7d952d76b5d531247ed2711939b11dfa0f2d12d0b97e375e6e14a3a6f32e59`.
+- Released without the last changes being seen in the installed app (compact window, faster video start, store ID
+  upgrade); they're covered by automated tests only.

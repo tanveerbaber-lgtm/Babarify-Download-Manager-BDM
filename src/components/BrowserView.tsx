@@ -84,14 +84,14 @@ export function BrowserView({ settings, onUpdate }: BrowserViewProps) {
             Open <code>chrome://extensions</code> (Chrome) or <code>edge://extensions</code> (Edge) and turn on <strong>Developer mode</strong>.
           </li>
           <li>
-            Choose <strong>Load unpacked</strong> and select the <code>extension</code> folder inside the BDM project.
+            Unzip the browser extension from the BDM download page, choose <strong>Load unpacked</strong> and select that folder.
           </li>
           <li>Pin the BDM button to the toolbar. Its popup shows whether it can reach BDM.</li>
           <li>
             If you connected while the browser was open and the popup says BDM isn't connected, <strong>restart the browser</strong> once.
           </li>
         </ol>
-        <p className="hint">Store versions of the extension will replace these steps when BDM is released.</p>
+        <p className="hint">The extension is on its way to the Chrome Web Store. Once it's there, you can install it from the store instead.</p>
       </section>
 
       <section className="card">

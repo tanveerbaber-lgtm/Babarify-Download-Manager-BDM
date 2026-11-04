@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-10-26 — LED speed meters on each download (list and download window). Final check in progress: automated checks pass; a real server's connection limit (HTTP 429) failed a download, fixed (BDM carries on with fewer connections); STORE_LISTING.md written. Browser checks wait for Claude in Chrome. Open from M7: Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-11-04 — v1.0.0 release updated with everything to date, including the Chrome Web Store ID (draft `kamcoajmedllmkajbgjenlbajkbilgie`, not yet submitted). Open: browser checks in the final check, Windows startup check, Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
