@@ -79,6 +79,7 @@ export const api = {
   fileSha256: (id: string) => call<string>("file_sha256", { id }),
   openDownloadWindow: (id: string) => call<void>("open_download_window", { id }),
   openLegalDocument: (document: "license" | "privacy" | "notices") => call<void>("open_legal_document", { document }),
+  openChromeStore: () => call<void>("open_chrome_store"),
   getClipboardOffer: () => call<ClipboardOffer | null>("get_clipboard_offer"),
   takeStartupRequests: () => call<UiRequest[]>("take_startup_requests"),
   acceptClipboardOffer: () => call<void>("accept_clipboard_offer"),

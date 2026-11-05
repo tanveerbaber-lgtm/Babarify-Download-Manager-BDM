@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-open-chrome-store"
+description = "Enables the open_chrome_store command without any pre-configured scope."
+commands.allow = ["open_chrome_store"]
+
+[[permission]]
+identifier = "deny-open-chrome-store"
+description = "Denies the open_chrome_store command without any pre-configured scope."
+commands.deny = ["open_chrome_store"]

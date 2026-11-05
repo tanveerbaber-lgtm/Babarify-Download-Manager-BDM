@@ -960,6 +960,14 @@ pub async fn open_legal_document(document: LegalDocument, app: tauri::AppHandle)
         .map_err(|e| AppError::Io(format!("couldn't open {file}: {e}")))
 }
 
+/// Opens the extension's Chrome Web Store listing in the default browser.
+#[tauri::command]
+pub async fn open_chrome_store(app: tauri::AppHandle) -> AppResult<()> {
+    app.opener()
+        .open_url(crate::browser::CHROME_STORE_URL, None::<&str>)
+        .map_err(|e| AppError::Io(format!("couldn't open the Chrome Web Store: {e}")))
+}
+
 /// Opens a finished file with its default app.
 #[tauri::command]
 pub async fn open_download(id: String, app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<()> {

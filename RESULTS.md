@@ -860,3 +860,34 @@ Measured on this PC with the Sprite Fright video on YouTube (yt-dlp 2026.10.21 s
   `cd7d952d76b5d531247ed2711939b11dfa0f2d12d0b97e375e6e14a3a6f32e59`.
 - Released without the last changes being seen in the installed app (compact window, faster video start, store ID
   upgrade); they're covered by automated tests only.
+
+## How-to video (2026-11-05)
+
+- `video/BDM-how-to-install-and-use.mp4` (1920x1080, 3 min 23 s, 13.5 MB) and an SRT subtitle file: installing BDM,
+  adding the extension, downloading files and videos, schedules and batch downloads. Sources in `video/source/`.
+- Built from real screens with sample data and highlight rings, plus the real website and a real chrome://extensions
+  page (other extensions hidden). The SmartScreen scene is an illustration. Voice: Windows' built-in Zira.
+- Checked: streams, audio levels, no long silences, frames from the final file. Nobody has listened to the voiceover
+  yet. The extension scene shows Load unpacked; replace it when the store listing is live.
+- **Fixed while filming:** the "Download Complete" path broke mid-word; it now wraps at spaces (not in the v1.0.0 build yet).
+
+## Chrome Web Store listing live (2026-11-05)
+
+- The listing address returns 200 with the BDM title. The Chrome Web Store won't load in the browser pane, so the page
+  itself wasn't viewed here; the user's screenshot shows version 1.0.0, updated November 5, 2026.
+- `WEBSITE_STORE_PROMPT.md`: store links for Chrome, a manual ZIP route for Edge until Edge Add-ons, and new FAQ and
+  install text. Not applied or checked on the live site yet.
+- Screenshots compared with babarify.com/bdm: the live video panel image is the old design, so `18-video-panel.png`
+  must be replaced. The popup code hasn't changed since its screenshot, so that image stays.
+- Not tested: the store copy connecting to BDM. Still to update: the how-to video's extension scene, which shows
+  Load unpacked.
+
+## Browser Integration page uses the store link (2026-11-05)
+
+- "Add the extension" now has an **Open Chrome Web Store** button and manual steps for Edge. README, LIMITATIONS,
+  THIRD_PARTY and STORE_LISTING match. The link is fixed in `open_chrome_store`, so the page can't open other addresses.
+- Checked: type check, frontend build, 197 Rust tests (one new: the link's ID is an allowed extension), and the page's
+  layout with sample data. Not checked: clicking the button in a real build. Not in the v1.0.0 release yet.
+- Test installer: `E:\BDM Release\test\BabarifyDownloadManager_1.0.0_x64-setup-test.exe`, 3,546,086 bytes, SHA-256
+  `4522f6fe677c1b2c761a09b269f1385a7a3db5b050b2523f6e31f4f739516da1`. `npm run check` and the build passed. The user
+  installed it and reports it updated and working. The v1.0.0 release still has the earlier build.

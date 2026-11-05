@@ -48,8 +48,8 @@ What Babarify Download Manager doesn't do (yet), and where its behavior may surp
 ## Browser integration
 
 - **Chrome and Edge only.** Firefox, Opera and Brave haven't been tested; Firefox needs a separate extension.
-- **The extension is loaded unpacked** until it's published to the Chrome Web Store / Edge Add-ons (M7). After first
-  installing BDM, restart the browser once so it finds the helper.
+- **Edge installs the extension manually** (Load unpacked) until it's on Edge Add-ons; Chrome uses the Chrome Web Store.
+  After first installing BDM, restart the browser once so it finds the helper.
 - **The on-video panel** is off by default and needs site access, which you grant in the extension's options.
 
 ## Queues, schedules and completion actions

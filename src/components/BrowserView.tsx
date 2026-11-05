@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleCheck, CircleAlert, Globe, Link2Off } from "lucide-react";
+import { CircleCheck, CircleAlert, ExternalLink, Globe, Link2Off } from "lucide-react";
 import { api } from "../lib/api";
 import type { AppError, BrowserStatus, Settings, SettingsPatch } from "../lib/types";
 
@@ -79,19 +79,48 @@ export function BrowserView({ settings, onUpdate }: BrowserViewProps) {
 
       <section className="card">
         <h2>Add the extension</h2>
+        <div className="setting-row">
+          <div>
+            <div className="setting-title">Google Chrome</div>
+            <div className="setting-desc">
+              Choose <strong>Add to Chrome</strong> on the store page. If it opens in another browser, open it in Chrome instead.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => api.openChromeStore().catch((e: AppError) => setError(e.message))}
+          >
+            <ExternalLink size={15} aria-hidden />
+            Open Chrome Web Store
+          </button>
+        </div>
+        <div className="setting-row">
+          <div>
+            <div className="setting-title">Microsoft Edge</div>
+            <div className="setting-desc">Install it manually until the Edge Add-ons listing is ready.</div>
+          </div>
+        </div>
         <ol className="steps">
+          <li>Unzip the browser extension from the BDM download page.</li>
           <li>
-            Open <code>chrome://extensions</code> (Chrome) or <code>edge://extensions</code> (Edge) and turn on <strong>Developer mode</strong>.
+            Open <code>edge://extensions</code> and turn on <strong>Developer mode</strong>.
           </li>
           <li>
-            Unzip the browser extension from the BDM download page, choose <strong>Load unpacked</strong> and select that folder.
-          </li>
-          <li>Pin the BDM button to the toolbar. Its popup shows whether it can reach BDM.</li>
-          <li>
-            If you connected while the browser was open and the popup says BDM isn't connected, <strong>restart the browser</strong> once.
+            Choose <strong>Load unpacked</strong> and select the unzipped folder.
           </li>
         </ol>
-        <p className="hint">The extension is on its way to the Chrome Web Store. Once it's there, you can install it from the store instead.</p>
+        <div className="setting-row">
+          <div>
+            <div className="setting-title">Then, in either browser</div>
+          </div>
+        </div>
+        <ol className="steps">
+          <li>Pin the BDM button to the toolbar. Its popup shows whether it can reach BDM.</li>
+          <li>
+            If the popup says BDM isn't connected, <strong>restart the browser</strong> once.
+          </li>
+        </ol>
       </section>
 
       <section className="card">

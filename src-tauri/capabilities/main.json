@@ -55,6 +55,7 @@
     "allow-open-download-window",
     "allow-fit-download-window",
     "allow-open-legal-document",
+    "allow-open-chrome-store",
     "allow-refresh-download-link",
     "allow-take-startup-requests",
     "allow-disk-free-space"

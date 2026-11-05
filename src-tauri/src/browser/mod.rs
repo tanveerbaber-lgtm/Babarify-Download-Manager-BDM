@@ -14,3 +14,17 @@ pub const HOST_EXE: &str = "bdm-native-host.exe";
 /// Extensions allowed to start the host: the development ID fixed by the
 /// `key` in `extension/manifest.json`, then the Chrome Web Store's ID.
 pub const EXTENSION_IDS: &[&str] = &["emaohblojdddihemfkbcchbfgaaanjkb", "kamcoajmedllmkajbgjenlbajkbilgie"];
+
+/// The extension's Chrome Web Store listing.
+pub const CHROME_STORE_URL: &str = "https://chromewebstore.google.com/detail/babarify-download-manager/kamcoajmedllmkajbgjenlbajkbilgie";
+
+#[cfg(test)]
+mod store_tests {
+    use super::{CHROME_STORE_URL, EXTENSION_IDS};
+
+    #[test]
+    fn the_store_link_points_at_an_allowed_extension() {
+        let id = CHROME_STORE_URL.rsplit('/').next().unwrap();
+        assert!(EXTENSION_IDS.contains(&id));
+    }
+}

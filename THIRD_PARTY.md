@@ -43,4 +43,4 @@ and an offer of the source code, or switch to BtbN's `lgpl` build.
 | FFmpeg, Deno | Settings → Media tools → Check for updates, then install. |
 | Rust crates, npm packages | Updated with the app. `cargo audit` (RustSec) and `npm audit` are run before each milestone; results are in RESULTS.md. |
 | The app itself | No self-update yet. Planned with the installer and signed releases (M7). |
-| Browser extension | Updated by loading the new version (or through the Chrome Web Store / Edge Add-ons once published, M7). |
+| Browser extension | Chrome updates it through the Chrome Web Store. In Edge, load the new version until it's on Edge Add-ons. |

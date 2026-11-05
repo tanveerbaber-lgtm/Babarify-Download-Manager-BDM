@@ -109,8 +109,8 @@ BDM"; the New Download dialog in BDM after clicking a download link; the extensi
 
 - Release BDM with both store IDs in `EXTENSION_IDS` (see "Before you start"), or users of the store copy can't
   connect.
-- Update BDM's **Browser Integration** page and the README: replace the "Load unpacked" steps with links to the two
-  store listings.
+- Update BDM's **Browser Integration** page and the README with each store link. Chrome's is done; replace Edge's
+  "Load unpacked" steps when its listing is live.
 - Every extension update: raise `version`, upload a new ZIP to both dashboards, and keep the privacy answers in
   step with any new permission.
 

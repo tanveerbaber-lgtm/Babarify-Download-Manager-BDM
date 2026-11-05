@@ -4,7 +4,7 @@ Updated after every completed task. Verification evidence is in [RESULTS.md](RES
 
 **Legend:** `[x]` done and verified · `[~]` implemented, verification pending · `[ ]` not started
 
-**Last updated:** 2026-11-04 — v1.0.0 release updated with everything to date, including the Chrome Web Store ID (draft `kamcoajmedllmkajbgjenlbajkbilgie`, not yet submitted). Open: browser checks in the final check, Windows startup check, Edge on real Windows, clean-PC test, code signing.
+**Last updated:** 2026-11-05 — Extension published on the Chrome Web Store (`kamcoajmedllmkajbgjenlbajkbilgie`); website update prompt written. BDM's Browser Integration page now links to the store (in the test build, not yet in the release). Open: how-to video's extension scene, browser checks in the final check, Windows startup check, Edge on real Windows, clean-PC test, code signing.
 
 ## Progress
 
@@ -229,6 +229,8 @@ Package BDM for installation, maintenance and possible public distribution.
 - [ ] Complete final acceptance testing and release checklist. *(in progress)*
   - [x] Release checklist written (RELEASE.md); automated checks pass; install, upgrade, uninstall and browser checks done
   - [x] Tagged `v1.0.0` and published the GitHub release (private repo) with the installer, extension zip and SHA256SUMS
+  - [x] Extension published on the Chrome Web Store (2026-11-05); the website prompt is in WEBSITE_STORE_PROMPT.md
+  - [x] Test build installed and working on your PC with the store link (your report, 2026-11-05)
   - [ ] Code signing (needs a certificate) and the clean-PC test
 
 ## After 1.0 — Power features

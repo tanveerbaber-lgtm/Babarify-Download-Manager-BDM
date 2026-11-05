@@ -45,6 +45,7 @@ const COMMANDS: &[&str] = &[
     "open_download_window",
     "fit_download_window",
     "open_legal_document",
+    "open_chrome_store",
     "refresh_download_link",
     "disk_free_space",
     "get_clipboard_offer",

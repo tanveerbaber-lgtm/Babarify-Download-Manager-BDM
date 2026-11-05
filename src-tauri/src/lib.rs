@@ -382,6 +382,7 @@ pub fn run() {
             commands::open_download_window,
             commands::fit_download_window,
             commands::open_legal_document,
+            commands::open_chrome_store,
             commands::refresh_download_link,
             commands::disk_free_space,
             desktop::get_clipboard_offer,

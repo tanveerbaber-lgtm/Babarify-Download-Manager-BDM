@@ -3321,7 +3321,8 @@ body,
 .dlw-summary .dlw-grid .path {
   font-family: inherit;
   font-size: var(--text-body);
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .dlw-summary .dlw-actions {

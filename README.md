@@ -91,6 +91,12 @@ Regenerate icons after changing the logo:
 cd src-tauri; npx tauri icon ../assets/brand/bdm-app-icon.svg -o icons
 ```
 
+## Browser extension
+
+**Chrome:** install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/babarify-download-manager/kamcoajmedllmkajbgjenlbajkbilgie), then restart Chrome once if the popup says BDM isn't connected.
+
+**Edge:** install it manually until the Edge Add-ons listing is ready: unzip the extension from the [latest release](https://github.com/tanveerbaber-lgtm/Babarify-Download-Manager-BDM/releases/latest), open `edge://extensions`, turn on Developer mode, choose **Load unpacked** and select the unzipped folder.
+
 ## Browser extension (development)
 
 1. Run BDM, open **Browser integration** and choose **Connect Chrome and Edge**.
